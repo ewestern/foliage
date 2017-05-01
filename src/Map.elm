@@ -1,32 +1,41 @@
+
 module Map exposing (..)
+
+import Pane exposing (..)
 import Mouse exposing (Position)
-import Time exposing (Time)
+import Html
 
-type alias Velocity =
-  { dx : Float
-  , dy : Float
+type alias Size = Position
+
+type alias Map
+  = { size : Size
+    ,  pane : MapPane }
+
+type Action
+    = A DragAction
+
+defaultMap = 
+  { size = { x = 100, y =  100 },
+    pane =  defaultPane
   }
 
--- the map window
-type alias Map = 
-  { size : Position 
-  , pane: MapPane
-  }
+-- paneView : MapPane -> Html PaneAction
+mapView : Map -> Html.Html Action
+mapView  map =  Html.map A <| viewPane map.pane
 
-type alias Layer =
-  { foo : Int
-  }
 
--- the thing you drag
-type alias MapPane = 
-  { position : Position
-  , drag : Maybe Drag
-  , layers: List Layer
-  }
+--updatePane : DragAction -> MapPane -> (MapPane, Cmd DragAction)
+updateMap : Action -> Map -> (Map, Cmd Action)
+updateMap action map = 
+  case action of
+    A da -> 
+      let (mp, cd) = updatePane da map.pane
+          nm = { map | pane = mp }
+          cmd  = Cmd.map A cd
+      in (nm, cmd)
 
-type alias Drag =
-    { start : Position
-    , current : Position
-    , velocity : Velocity -- vector representing deltas (per frame?)
-    , release : Maybe Time -- time of release
-    }
+--dragSubscription : DragState -> Sub DragAction
+
+mapSubscriptions  : Map -> Sub Action
+mapSubscriptions map = 
+     Sub.map A <| dragSubscription map.pane.dragstate 
