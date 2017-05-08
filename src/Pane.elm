@@ -15,6 +15,14 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (on)
 import Debug
 
+
+--
+import Util exposing (px)
+import TileLayer exposing (TileLayer)
+import Geo exposing (LatLng)
+
+type alias Size = Position
+
 type alias Displacement = Position -- i.e., where the pane's, left and top coords ought to be
 type alias Coords = Position -- i.e., the page coordinates that come from a mouse movement
 
@@ -36,12 +44,14 @@ type alias Velocity =
   , dy : Float
   }
 
-type alias Layer =
-  { foo : Int
-  }
+-- For a given scroll cycle, the Pane's origin can be associated with a specific LatLng
 type alias MapPane = 
   { dragstate : DragState
-  , layers: List Layer
+  , tileLayers : List TileLayer
+  --, tileUrl : Maybe String
+  , vectorLayers : List Int
+  , latLngCenter : LatLng
+  , size : Size
   , position : Position
   }
 
@@ -86,32 +96,18 @@ updateDrag : DragAction -> Drag -> Drag
 updateDrag action state  = 
     case action of
       DragStart xy     ->  { state | start = xy }
--- Don't accept DragAt when we have a release
       DragAt xy        -> 
         case state.release of
           Just _ -> state
           Nothing -> 
             let np = sub xy state.start
-    -- new current is: xy - start
                 v = scaleP (sub np state.current) 1.0
-    -- not sure about scale
             in { state | current =  np, velocity = v }
--- when we drag:
--- start stays the same
--- position is the new displacement, given by old_displacement + (pos - start)
       DragEnd           ->  state
--- start the timer
       DragCoastStart t  -> { state | release = Just t }
       DragCoast np      -> { state | current = np } 
       DragCoastEnd      ->  Debug.crash "Shouldn't happen"
---- { state | release = Nothing }
 
---subscriptions : MapPane -> Sub Action
---subscriptions = Debug.crash "bar"
-
-px : Int -> String
-px number =
-  toString number ++ "px"
 
 onMouseDown : Attribute DragAction
 onMouseDown =
@@ -187,7 +183,6 @@ updatePane action pane =
       case updateDragState action pane.dragstate of
 -- idea, add Velocity to position 
         Just d ->  ( { pane | dragstate = Just d, position = addVelocity pane.position d.velocity }, cmd)
-        -- Just d ->  ( { pane | dragstate = Just d, position = addPosition d.current pane.position }, cmd)
         Nothing -> ( { pane | dragstate = Nothing }, cmd)
 
 viewPane : MapPane -> Html DragAction
@@ -198,10 +193,9 @@ viewPane  pane =
             [ ("background-color" , "#3C8D2F")
             , ("left", px pane.position.x)
             , ("top", px pane.position.y)
-            , ("height", px 100)
-            , ("width", px 100)
+            --, ("height", "100%")
+            --, ("width", "100%")
             , ("position", "absolute")
-
             ]
         ] 
         [ text "Foo"]
@@ -218,10 +212,10 @@ defaultDrag =
   , release = Nothing }
 
 
-defaultPane : MapPane
-defaultPane = 
-  { dragstate =  Nothing
-  , position = emptyPos
-  , layers = [] }
+--- Generalize to All Layers
+
+addTileLayer : MapPane -> TileLayer -> MapPane
+addTileLayer mp tl = { mp | tileLayers = tl :: mp.tileLayers }
+  
 
 
