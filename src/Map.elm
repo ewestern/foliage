@@ -2,7 +2,6 @@ module Map exposing (..)
 
 import Mouse exposing (Position)
 import Html
-
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Dict
@@ -11,9 +10,10 @@ import Dict
 -- 
 
 import Pane exposing (..)
-import Geo exposing (LatLng, Bounds)
+import Geo exposing (..)
+--LatLng, Bounds, CRS, pointToLatLng, latLngToPoint, mapCoord
 import Util exposing (..)
-import TileLayer exposing (TileLayer)
+import TileLayer exposing (TileLayer, moveLayer)
 
 
 type alias Map
@@ -25,58 +25,51 @@ type InitialCoords
   | Initial_Bounds (Bounds LatLng)
 
 type Action
-    = A DragAction
+    = A PaneAction
 
 
 type alias MapOptions =
   { tileUrl : Maybe String
   , initialCoords : InitialCoords
   , initialZoom : Zoom
+  --, crs : CRS
+  --, initialZoom : Zoom
   --, vectorLayers = List VectorLayer 
   , size : Size }
   
 
-getInitialCenter : InitialCoords -> LatLng
-getInitialCenter ic = case ic of
-    Initial_Center ll -> ll
-    Initial_Bounds bs ->  
-      let nlat = (bs.ne.lat + bs.sw.lat) / 2
-          nlng = (bs.ne.lng + bs.sw.lng) / 2
-      in {lat  = nlat, lng = nlng }
+getInitialOrigin : Size -> CRS -> Zoom -> InitialCoords -> LatLng
+getInitialOrigin sz crs zoom ic = case ic of 
+    Initial_Center ll -> 
+      let p = latLngToPoint crs zoom ll
+          p2 = difference p <| mapCoord ((*) 0.5 << toFloat) sz
+      in pointToLatLng crs zoom p2
+    Initial_Bounds bs -> bs.sw
+
 
 makeMap : MapOptions -> Map
 makeMap mo = 
-  let pane = makePane mo.size mo.tileUrl mo.initialCoords mo.initialZoom
+  let pane = makePane mo
   in 
     { size = mo.size
     , pane = pane }
 
-{-
-type alias TileLayer =
-  { url : String
-  , size: Size -- need to compute how many / which tiles to show
-  --, origin : Position
-  , origin : Point -- a projected point on a two-dimensional plane that shares an origin with LatLng
-  , levels : Dict Zoom Level
-  , crs : CRS
-  , currentZoom : Zoom }
--}
-
-
-makePane : Size -> Maybe String -> InitialCoords -> Zoom -> MapPane
-makePane s tu ic zoom = 
-    let origin = getInitialCenter ic
-        level = 
-        initialLevel = Dict.insert zoom level Dict.empty
-        tl = 
+--getInitialOrigin : Size -> CRS -> Zoom -> InitialCoords -> (Point, LatLng)
+--makePane : Size -> Maybe String -> InitialCoords -> Zoom -> MapPane
+--makePane s tu ic zoom = 
+makePane : MapOptions-> MapPane
+makePane mo = 
+    let crs = espg3857
+        ll = getInitialOrigin mo.size crs mo.initialZoom mo.initialCoords
+        initialLayer = 
           Maybe.map (\url -> 
-              { url = url, size = s, origin = , levels = Dict.empty, crs=espg4326, currentZoom = 10 } tu
+              { urlTemplate = url, size = mo.size, levels = Dict.empty, crs=crs, currentZoom = mo.initialZoom, latLngOrigin=ll }) mo.tileUrl
     in
       { dragstate = Nothing
-      , size = s
+      , size = mo.size
       , position = emptyPos -- the origin of the pane, relative to the origin of the map, in pixels
-      , latLngCenter = origin
-      , tileLayers = catMaybe [tl] 
+      , latLngCenter = ll
+      , tileLayers = List.map (moveLayer {x=0, y=0}) <| catMaybe [initialLayer] 
       , vectorLayers = [] }
 
 -- paneView : MapPane -> Html PaneAction

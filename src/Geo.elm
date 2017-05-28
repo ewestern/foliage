@@ -91,12 +91,6 @@ type alias CRS =
   , projection: Projection
   , transformation: Transformation}
 
-lonLatProjection : Projection
-lonLatProjection = 
-  { project = \l -> {x = l.lng, y = l.lat}
-  , unproject = \p -> {lng = p.x, lat = p.y}
-  , bounds = {sw = {x =-180, y = -90}, ne = {x = 180, y = 90}} }
-
 
 sphericalMercatorProjection : Projection
 sphericalMercatorProjection = 
@@ -121,12 +115,6 @@ sphericalMercatorProjection =
 
 earthRadius : Float
 earthRadius = 6378137 
-
-espg4326 : CRS
-espg4326 = 
-  { code = "ESPG:4326"
-  , projection = lonLatProjection
-  , transformation = (1 / 180, 1, -1 / 180, 0.5) }
 
 espg3857 : CRS
 espg3857 =
@@ -153,6 +141,22 @@ getZoomScale : Zoom -> Zoom -> Float
 getZoomScale z1 z2 = 
   (scaleZoom z1) / (scaleZoom z2)
 
+lonLatProjection : Projection
+lonLatProjection = 
+  { project = \l -> {x = l.lng, y = l.lat}
+  , unproject = \p -> {lng = p.x, lat = p.y}
+  , bounds = {sw = {x =-180, y = -90}, ne = {x = 180, y = 90}} }
+
+--espg3395 : CRS
+--espg3395
+
+espg4326 : CRS
+espg4326 = 
+  { code = "ESPG:4326"
+  , projection = lonLatProjection
+  , transformation = (1 / 180, 1, -1 / 180, 0.5) }
+
+
 --  Projects geographical coordinates into pixel coordinates for a given zoom.
 latLngToPoint : CRS -> Zoom -> LatLng -> Point
 latLngToPoint crs zoom coords = 
@@ -168,8 +172,22 @@ pointToLatLng crs zoom point =
   in 
     crs.projection.unproject unT
     
+{-
 getCenter : Bounds Position -> Coord Int
 getCenter bounds = mapCoord (flip (//) 2) <| sum bounds.ne bounds.sw
+-}
+
+type alias TileSpec = 
+  { x : Int
+  , y : Int
+  , z : Int }
+
+
+{-
+tileSpecForLatLng : LatLng -> Zoom -> TileSpec
+tileSpecForLatLng
+-}
+
 
 distance : LatLng -> LatLng -> Float
 distance l1 l2 = 
@@ -189,23 +207,3 @@ posToPoint : Position -> Point
 posToPoint {x,y} =
   { x = toFloat x
   , y = toFloat y }
-
-pixelBoundsToTileRange : Size -> Bounds Point -> Bounds Point
-pixelBoundsToTileRange size bounds =
-  { sw = mapP floorF <| quotient bounds.sw <| posToPoint size
-  , ne = mapP floorF <| quotient bounds.ne <| posToPoint size }
-
-getTiledPixelBounds : CRS -> Zoom -> Size -> LatLng -> Bounds Point
-getTiledPixelBounds crs zoom mapSize coords = 
-  let center = latLngToPoint crs zoom coords
-      half = mapCoord (\n -> (toFloat n) / (2 * (scaleZoom zoom))) mapSize
-  in
-    { sw = difference center half, ne = sum center half }
-
-
-getCenterLayerPoint : Point -> Point -> Point
-getCenterLayerPoint contSize panePos = 
-  let centerOfContainer = mapP (\x -> x / 2) contSize
-  in difference panePos centerOfContainer
- 
-
