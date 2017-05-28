@@ -1,16 +1,16 @@
 module Geo exposing (..)
 
-import Mouse exposing (Position)
-
 -- A point represents a projected coordinate on a two dimensional plane. It shares an origin with LatLng
 type alias Coord number
-  = { x : number
-    , y: number }
+  = { x : number, y: number }
 
-type alias Size = Position
+type alias Size = Coord Int
 
 type alias Point = Coord Float
 
+type alias Position = Coord Int
+
+type alias Zoom = Int
 
 type alias LatLng =
    { lng : Float
@@ -21,32 +21,10 @@ mapCoord f {x,y} =
   { x = f x
   , y = f y }
 
-mapP : (Float -> Float) -> Point -> Point
-mapP  = mapCoord 
-
-mapL : (Float -> Float) -> LatLng -> LatLng
-mapL f p = 
-  { lng = f p.lng
-  , lat = f p.lat }
-
---mapB : (a -> a) -> Bounds a -> Bounds a
---mapB f b = 
-  --{ sw = f b.sw
-  --, ne = f b.ne }
-
-
 type alias Bounds a =
   { sw : a 
   , ne : a }
 
-type alias Zoom = Int
-
-{-
-scaleBy' : (Float -> Float -> Float) -> LatLng -> LatLng -> LatLng
-scaleBy' f p1 p2 =
-  { lng = f p1.lng p2.lng
-  , lat = f p1.lat p2.lat }
--}
 
 scaleBy : (number -> number -> number) -> Coord number -> Coord number -> Coord number
 scaleBy f p1 p2 =
@@ -147,9 +125,6 @@ lonLatProjection =
   , unproject = \p -> {lng = p.x, lat = p.y}
   , bounds = {sw = {x =-180, y = -90}, ne = {x = 180, y = 90}} }
 
---espg3395 : CRS
---espg3395
-
 espg4326 : CRS
 espg4326 = 
   { code = "ESPG:4326"
@@ -181,13 +156,6 @@ type alias TileSpec =
   { x : Int
   , y : Int
   , z : Int }
-
-
-{-
-tileSpecForLatLng : LatLng -> Zoom -> TileSpec
-tileSpecForLatLng
--}
-
 
 distance : LatLng -> LatLng -> Float
 distance l1 l2 = 

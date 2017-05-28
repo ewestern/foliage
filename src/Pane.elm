@@ -3,26 +3,20 @@ module Pane exposing (..)
 
 import Time exposing (Time, second, now)
 
+import Mouse
 import Task
-import Mouse exposing (Position)
 import AnimationFrame
 
 import Json.Decode as Decode
 import Html exposing (..)
-
 import Ease exposing (..) 
 import Html.Attributes exposing (..)
 import Html.Events exposing (on)
-import Debug
-
 
 --
 import Util exposing (px)
 import TileLayer exposing (TileLayer, TileLayerAction, viewTileLayer)
-import Geo exposing (LatLng, Size)
-
---type alias Size = Position
-
+import Geo exposing (LatLng, Size, Position)
 type alias Displacement = Position -- i.e., where the pane's, left and top coords ought to be
 type alias Coords = Position -- i.e., the page coordinates that come from a mouse movement
 
@@ -36,10 +30,6 @@ type PaneAction
     | DragCoast Position
     | DragCoastEnd
     | Pane_Empty
-    --|  TileLayerAction -- TODO: this is just a placeholder
-
-
----
 
 type alias Velocity =
   { dx : Float
@@ -50,7 +40,6 @@ type alias Velocity =
 type alias MapPane = 
   { dragstate : DragState
   , tileLayers : List TileLayer
-  --, tileUrl : Maybe String
   , vectorLayers : List Int
   , latLngCenter : LatLng
   , size : Size
@@ -109,7 +98,7 @@ updateDrag action state  =
       DragCoastStart t  -> { state | release = Just t }
       DragCoast np      -> { state | current = np } 
       DragCoastEnd      ->  Debug.crash "Shouldn't happen"
-      Pane_Empty       -> Debug.crash "Shouldn't happen" -- TODO
+      Pane_Empty       -> Debug.crash "Shouldn't happen"
 
 
 

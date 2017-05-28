@@ -1,17 +1,12 @@
 module Map exposing (..)
 
-import Mouse exposing (Position)
 import Html
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Dict
-
-
--- 
-
+---
 import Pane exposing (..)
 import Geo exposing (..)
---LatLng, Bounds, CRS, pointToLatLng, latLngToPoint, mapCoord
 import Util exposing (..)
 import TileLayer exposing (TileLayer, moveLayer)
 
@@ -32,9 +27,6 @@ type alias MapOptions =
   { tileUrl : Maybe String
   , initialCoords : InitialCoords
   , initialZoom : Zoom
-  --, crs : CRS
-  --, initialZoom : Zoom
-  --, vectorLayers = List VectorLayer 
   , size : Size }
   
 
@@ -54,9 +46,6 @@ makeMap mo =
     { size = mo.size
     , pane = pane }
 
---getInitialOrigin : Size -> CRS -> Zoom -> InitialCoords -> (Point, LatLng)
---makePane : Size -> Maybe String -> InitialCoords -> Zoom -> MapPane
---makePane s tu ic zoom = 
 makePane : MapOptions-> MapPane
 makePane mo = 
     let crs = espg3857
@@ -72,7 +61,6 @@ makePane mo =
       , tileLayers = List.map (moveLayer {x=0, y=0}) <| catMaybe [initialLayer] 
       , vectorLayers = [] }
 
--- paneView : MapPane -> Html PaneAction
 mapView : Map -> Html.Html Action
 mapView  map =  
       div
@@ -86,7 +74,6 @@ mapView  map =
         [ Html.map A <| viewPane map.pane ]
 
 
---updatePane : DragAction -> MapPane -> (MapPane, Cmd DragAction)
 updateMap : Action -> Map -> (Map, Cmd Action)
 updateMap action map = 
   case action of
@@ -95,8 +82,6 @@ updateMap action map =
           nm = { map | pane = mp }
           cmd  = Cmd.map A cd
       in (nm, cmd)
-
---dragSubscription : DragState -> Sub DragAction
 
 mapSubscriptions  : Map -> Sub Action
 mapSubscriptions map = 

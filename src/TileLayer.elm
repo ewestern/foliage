@@ -5,7 +5,6 @@ import Html
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Regex exposing (Regex, regex, replace, HowMany(..), Match)
-import Mouse exposing (Position)
 import Dict exposing (Dict)
 
 
@@ -17,7 +16,6 @@ import Util exposing (px, catMaybe, range, zip)
 type TileLayerAction
   = TileLayer_Move Position
   | TileLayer_Tile ()
---TL_TileA TileAction
 
 
 -- To render a tile, we need a url and a position
@@ -25,11 +23,6 @@ type alias Tile =
   { url : String 
   , current: Bool
   , position: Position }
-
---type TileAction = 
-    --T_Empty
-
--- 
 
 tempReg : Regex
 tempReg = regex "{([a-z])}"
@@ -62,7 +55,7 @@ type alias TileLayer =
   , size: Size -- need to compute how many / which tiles to show
   --, origin : Position
   , latLngOrigin : LatLng
--- a projected point on a two-dimensional plane that shares an origin with LatLng
+  -- a projected point on a two-dimensional plane that shares an origin with LatLng
   , levels : Dict Zoom Level
   , crs : CRS
   , currentZoom : Zoom }
@@ -107,8 +100,6 @@ tileSize =
   { x = 256
   , y = 256 }
 
-
--- moveLayer : Position -> TileLayer -> TileLayer
 updateTileLayer : TileLayerAction -> TileLayer -> (TileLayer, Cmd TileLayerAction)
 updateTileLayer tla tl = 
   case tla of
@@ -151,7 +142,6 @@ viewTileLayer tl =
           ]
         ]
         ( List.map viewTile <| Dict.values <| level.tiles)
-        --c ( List.map (Html.map TileLayer_Tile  <<  viewTile) <| Dict.values <| level.tiles)
 
 viewTile : Tile -> Html a
 viewTile t = 
@@ -175,5 +165,3 @@ getTiledPixelBounds crs zoom mapSize coords =
       half = mapCoord (\n -> (toFloat n) / (2 * (scaleZoom zoom))) mapSize
   in
     { sw = difference center half, ne = sum center half }
-
-
