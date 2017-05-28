@@ -74,37 +74,13 @@ moveLayer pos tl =
       points = List.concat <| List.map (\x -> List.map (\y -> {x = x, y = y} ) ys ) xs
       tiles = Dict.fromList <| List.map (\p -> (tileCoordsToKey p, createTile tl.urlTemplate tl.currentZoom p)) <| Debug.log "DDDDD" points
       pointOrigin = latLngToPoint tl.crs tl.currentZoom tl.latLngOrigin
+--- 
       level = Maybe.withDefault (createLevel tl.currentZoom pointOrigin) <| Dict.get tl.currentZoom tl.levels 
       newLevel = { level |
         tiles = Dict.union level.tiles tiles }
   in { tl |
         levels = Dict.insert tl.currentZoom newLevel tl.levels }
         -- latLngCenter = newCenter  }
-
-tileCoordsToKey : Position -> TileKey
-tileCoordsToKey p = String.join ":" <| List.map toString [p.x, p.y]
-
-
-createTile : String -> Zoom -> Position -> Tile
-createTile temp zoom pos =
-  { url = makeUrl {x=pos.x, y=pos.y, z=zoom} temp
-  , current = True
-  , position = pos }
-
-pixelBoundsToTileRange : Size -> Bounds Point -> Bounds Position
-pixelBoundsToTileRange size bounds =
-  { sw = mapCoord floor <| quotient bounds.sw <| posToPoint size
-  , ne = mapCoord floor <| quotient bounds.ne <| posToPoint size }
-
-tileSize = 
-  { x = 256
-  , y = 256 }
-
-updateTileLayer : TileLayerAction -> TileLayer -> (TileLayer, Cmd TileLayerAction)
-updateTileLayer tla tl = 
-  case tla of
-    TileLayer_Move pos -> (moveLayer pos tl, Cmd.none)
-    _ -> (tl, Cmd.none)
 
 updateLevel : CRS -> String -> Zoom -> Size -> Point -> Level
 updateLevel crs temp z paneSize or  =
@@ -118,10 +94,39 @@ updateLevel crs temp z paneSize or  =
     , tiles = Dict.fromList <| List.map (\t -> (tileCoordsToKey t.position, t)) ts  }
 
 
+
+tileCoordsToKey : Position -> TileKey
+tileCoordsToKey p = String.join ":" <| List.map toString [p.x, p.y]
+
+
+createTile : String -> Zoom -> Position -> Tile
+createTile temp zoom pos =
+  { url = makeUrl {x=pos.x, y=pos.y, z=zoom} temp
+  , current = True
+  , position = pos }
+
+pixelBoundsToTileRange : Size -> Bounds Point -> Bounds Position
+pixelBoundsToTileRange size bounds =
+    let floatSize = mapCoord toFloat size
+    in
+      { sw = mapCoord floor <| quotient bounds.sw floatSize
+      , ne = mapCoord ceiling <| quotient bounds.ne floatSize }
+
+tileSize = 
+  { x = 256
+  , y = 256 }
+
+updateTileLayer : TileLayerAction -> TileLayer -> (TileLayer, Cmd TileLayerAction)
+updateTileLayer tla tl = 
+  case tla of
+    TileLayer_Move pos -> (moveLayer pos tl, Cmd.none)
+    _ -> (tl, Cmd.none)
+
+
 createLevel : Zoom -> Point -> Level
 createLevel z or =
   { zoom = z
-  , origin = or
+  , origin = or 
   , tiles = Dict.empty }
 
 getDefault : v -> comparable -> Dict comparable v -> v

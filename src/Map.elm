@@ -42,9 +42,7 @@ getInitialOrigin sz crs zoom ic = case ic of
 makeMap : MapOptions -> Map
 makeMap mo = 
   let pane = makePane mo
-  in 
-    { size = mo.size
-    , pane = pane }
+  in { size = mo.size, pane = pane }
 
 makePane : MapOptions-> MapPane
 makePane mo = 
