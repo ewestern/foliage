@@ -8,7 +8,7 @@ import Dict
 import Pane exposing (..)
 import Geo exposing (..)
 import Util exposing (..)
-import TileLayer exposing (TileLayer, moveLayer)
+import TileLayer exposing (TileLayer, moveLayer, moveLayer2)
 
 
 type alias Map
@@ -56,7 +56,7 @@ makePane mo =
       , size = mo.size
       , position = emptyPos -- the origin of the pane, relative to the origin of the map, in pixels
       , latLngCenter = ll
-      , tileLayers = List.map (moveLayer {x=0, y=0}) <| catMaybe [initialLayer] 
+      , tileLayers = List.map (moveLayer2 {x=0, y=0}) <| catMaybe [initialLayer] 
       , vectorLayers = [] }
 
 mapView : Map -> Html.Html Action

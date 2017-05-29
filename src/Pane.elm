@@ -15,16 +15,14 @@ import Html.Events exposing (on)
 
 --
 import Util exposing (px)
-import TileLayer exposing (TileLayer, TileLayerAction, viewTileLayer)
+import TileLayer exposing (TileLayer, TileLayerAction(..),  viewTileLayer, updateTileLayer)
 import Geo exposing (LatLng, Size, Position)
-type alias Displacement = Position -- i.e., where the pane's, left and top coords ought to be
-type alias Coords = Position -- i.e., the page coordinates that come from a mouse movement
 
 
 ---
 type PaneAction
-    = DragStart Coords
-    | DragAt Coords
+    = DragStart Position
+    | DragAt Position
     | DragEnd
     | DragCoastStart Time
     | DragCoast Position
@@ -64,8 +62,8 @@ sub p1 p2 = {x = p1.x - p2.x, y = p1.y - p2.y }
 type alias DragState = Maybe Drag
 
 type alias Drag =
-  { current : Displacement
-  , start : Coords
+  { current : Position
+  , start : Position
   , velocity : Velocity -- vector representing deltas (per frame?)
   , release : Maybe Time } 
 
@@ -161,8 +159,18 @@ updatePane action pane =
         newPane =  
             { pane |
               dragstate = dsNew
+            , tileLayers = List.map (updatePaneLayer action) pane.tileLayers
             , position =  posNew }
     in (newPane, cmd)
+
+updatePaneLayer : PaneAction -> TileLayer -> TileLayer
+updatePaneLayer pa tl = 
+  case pa of
+    DragStart pos -> updateTileLayer (TileLayer_Move pos) tl
+    DragAt pos    -> updateTileLayer (TileLayer_Move pos) tl
+    DragCoast pos -> updateTileLayer (TileLayer_Move pos) tl
+    _             ->  tl
+
 
 viewPane : MapPane -> Html PaneAction
 viewPane  pane =
