@@ -7,16 +7,12 @@ import Html.Attributes exposing (..)
 import Regex exposing (Regex, regex, replace, HowMany(..), Match)
 import Dict exposing (Dict)
 
-
---
-
 import Geo exposing (..)
 import Util exposing (px, catMaybe, range, zip)
 
 type TileLayerAction
   = TileLayer_Move Position
   | TileLayer_Zoom ZoomDir
-  --| TileLayer_Tile ()
 
 type ZoomDir
   = In
@@ -26,7 +22,7 @@ incZoom : ZoomDir -> Zoom -> Zoom
 incZoom zd z =  case zd of
     In -> z + 1
     Out -> z - 1
--- To render a tile, we need a url and a position
+
 type alias Tile =
   { url : String 
   , current: Bool
@@ -86,7 +82,6 @@ getLocalPosition : Position -> Size -> Position -> Position
 getLocalPosition origin tilesize coords = 
   difference (product coords tilesize) origin
 
--- takes espg3865 point
 
 getTileName : Point -> Zoom -> Position
 getTileName point zoom = 
@@ -101,9 +96,6 @@ getTileRange : Point -> Size -> Zoom -> Bounds Position
 getTileRange point paneSize zoom = 
   let ne = sum (mapCoord toFloat paneSize) point
   in { sw = getTileName point zoom, ne = getTileName ne zoom }
-
---getTileRange : Zoom -> Size -> Size -> Point -> Bounds Position
---getTileRange z s1 s2 point = 
 
 pixelBoundsToTileRange : Size -> Bounds Point -> Bounds Position
 pixelBoundsToTileRange size bounds =
@@ -154,7 +146,6 @@ tileSize =
   , y = 256 }
 
 
--- moveLayer2 : Position -> TileLayer -> TileLayer
 updateTileLayer : TileLayerAction -> TileLayer -> TileLayer
 updateTileLayer tla tl = 
   case tla of
@@ -202,6 +193,4 @@ viewTile t =
           src t.url
         ] 
         [ ]
-
-
 

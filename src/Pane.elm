@@ -12,7 +12,6 @@ import Svg.Attributes  as SA
 
 import Json.Decode as Decode
 import Html exposing (..)
-import Ease exposing (..) 
 import Html.Attributes exposing (..)
 import Html.Events exposing (on)
 

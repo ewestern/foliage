@@ -115,10 +115,6 @@ projectedBounds crs zoom =
     { sw = min
     , ne = max }
 
-getZoomScale : Zoom -> Zoom -> Float
-getZoomScale z1 z2 = 
-  (scaleZoom z1) / (scaleZoom z2)
-
 lonLatProjection : Projection
 lonLatProjection = 
   { project = \l -> {x = l.lng, y = l.lat}
@@ -146,11 +142,6 @@ pointToLatLng crs zoom point =
   in 
     crs.projection.unproject unT
     
-{-
-getCenter : Bounds Position -> Coord Int
-getCenter bounds = mapCoord (flip (//) 2) <| sum bounds.ne bounds.sw
--}
-
 type alias TileSpec = 
   { x : Int
   , y : Int
@@ -164,13 +155,4 @@ distance l1 l2 =
       a = sin lat1 * sin lat2 +
           cos lat1 * cos lat2 * cos ((l2.lng - l1.lng)  * rad)
   in earthRadius * (acos  (min a 1))
---
 
-floorF : Float -> Float
-floorF = toFloat << floor
-
-
-posToPoint : Position -> Point
-posToPoint {x,y} =
-  { x = toFloat x
-  , y = toFloat y }

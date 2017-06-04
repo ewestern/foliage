@@ -1,7 +1,6 @@
 module Main exposing (..)
 
 import Map exposing (..)
-import Geo exposing (Bounds, espg4326)
 import Html
 
 -- MODEL
