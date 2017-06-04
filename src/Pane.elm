@@ -6,6 +6,9 @@ import Time exposing (Time, second, now)
 import Mouse
 import Task
 import AnimationFrame
+import Svg exposing (rect, svg)
+import Svg.Attributes  as SA
+--exposing (width, height)
 
 import Json.Decode as Decode
 import Html exposing (..)
@@ -15,19 +18,25 @@ import Html.Events exposing (on)
 
 --
 import Util exposing (px)
-import TileLayer exposing (TileLayer, TileLayerAction(..),  viewTileLayer, updateTileLayer)
+import TileLayer exposing (..)
 import Geo exposing (LatLng, Size, Position)
 
 
 ---
-type PaneAction
+
+type DragAction
     = DragStart Position
     | DragAt Position
     | DragEnd
     | DragCoastStart Time
     | DragCoast Position
     | DragCoastEnd
+
+type PaneAction
+    = Pane_Drag DragAction
+    | Pane_Zoom ZoomDir
     | Pane_Empty
+
 
 type alias Velocity =
   { dx : Float
@@ -68,7 +77,7 @@ type alias Drag =
   , release : Maybe Time } 
 
 
-updateDragState : PaneAction -> DragState -> DragState
+updateDragState : DragAction -> DragState -> DragState
 updateDragState da ds =
   case ds of
     Just d ->  
@@ -81,7 +90,7 @@ updateDragState da ds =
         DragStart xy -> Just <| { defaultDrag | start = xy }
         _ -> Debug.crash "Oops, shouldn't happen"
 
-updateDrag : PaneAction -> Drag -> Drag
+updateDrag : DragAction -> Drag -> Drag
 updateDrag action state  = 
     case action of
       DragStart xy     ->  { state | start = xy }
@@ -96,16 +105,15 @@ updateDrag action state  =
       DragCoastStart t  -> { state | release = Just t }
       DragCoast np      -> { state | current = np } 
       DragCoastEnd      ->  Debug.crash "Shouldn't happen"
-      Pane_Empty       -> Debug.crash "Shouldn't happen"
 
 
 
-onMouseDown : Attribute PaneAction
-onMouseDown =
-  on "mousedown" (Decode.map DragStart Mouse.position)
+onMouseDown : (Position -> a) -> Attribute a
+onMouseDown f =
+  on "mousedown" (Decode.map f Mouse.position)
 
 
-coastSubscription : Drag -> Sub PaneAction
+coastSubscription : Drag -> Sub DragAction
 coastSubscription state = 
     case state.release of
       Nothing -> Sub.none
@@ -129,7 +137,7 @@ epsilon = 0.001
 almostZero : Velocity -> Bool
 almostZero {dx,dy} = (abs dx < epsilon) && (abs dy < epsilon)
 
-dragSubscription : DragState -> Sub PaneAction
+dragSubscription : DragState -> Sub DragAction
 dragSubscription ds = 
     case ds of
       Just d -> Sub.batch [ Mouse.moves DragAt, Mouse.ups (\p -> DragEnd), coastSubscription d]
@@ -139,33 +147,37 @@ dragSubscription ds =
 
 
 --
-updatePaneCommand : PaneAction -> Cmd PaneAction
-updatePaneCommand da = 
+updateDragCommand : DragAction -> Cmd DragAction
+updateDragCommand da = 
     case da of
       DragEnd -> Task.perform DragCoastStart now
       _   -> Cmd.none
 
 
--- updateTileLayer : TileLayerAction -> TileLayer -> (TileLayer, Cmd TileLayerAction)
--- case on pane action -> for `move` actions, update TileLayer
--- TileLayer_Move Position
-
 
 updatePane : PaneAction -> MapPane -> (MapPane, Cmd PaneAction)
 updatePane action pane = 
-    let cmd = updatePaneCommand action
-        dsNew = updateDragState action pane.dragstate
-        posNew = Maybe.withDefault pane.position <| Maybe.map (\d -> addVelocity pane.position d.velocity) dsNew
-        newPane =  
-            { pane |
-              dragstate = dsNew
-            , tileLayers = List.map (updatePaneLayer action) pane.tileLayers
-            , position =  posNew }
-    in (newPane, cmd)
+    case action of
+      Pane_Drag da -> 
+        let dsNew = updateDragState da pane.dragstate
+            posNew = Maybe.withDefault pane.position <| Maybe.map (\d -> addVelocity pane.position d.velocity) dsNew
+            newPane = 
+                { pane |
+                  dragstate = dsNew
+                , tileLayers = List.map (updatePaneLayer da) pane.tileLayers
+                , position =  posNew }
+            cmd = Cmd.map Pane_Drag <| updateDragCommand da
+        in (newPane, cmd)
+      Pane_Zoom zd ->  
+        let np =  { pane | tileLayers = List.map (updateTileLayer (TileLayer_Zoom zd)) pane.tileLayers  } 
+        in (np, Cmd.none)
+      Pane_Empty -> Debug.crash "FOO"
+          
+      
 
-updatePaneLayer : PaneAction -> TileLayer -> TileLayer
-updatePaneLayer pa tl = 
-  case pa of
+updatePaneLayer : DragAction -> TileLayer -> TileLayer
+updatePaneLayer da tl = 
+  case da of
     DragStart pos -> updateTileLayer (TileLayer_Move pos) tl
     DragAt pos    -> updateTileLayer (TileLayer_Move pos) tl
     DragCoast pos -> updateTileLayer (TileLayer_Move pos) tl
@@ -175,18 +187,78 @@ updatePaneLayer pa tl =
 viewPane : MapPane -> Html PaneAction
 viewPane  pane =
       div
-        [ onMouseDown
+        [ onMouseDown (Pane_Drag << DragStart)
         , style
-            [ ("left", px pane.position.x)
-            , ("top", px pane.position.y)
-            --, ("background-color" , "#3C8D2F")
-            , ("height", "100%")
+            [ 
+              ("height", "100%")
             , ("width", "100%")
             , ("position", "absolute")
             ]
         ] 
-        (List.map viewTileLayer pane.tileLayers)
+        [ viewContainer pane.position pane.tileLayers
+        , Html.map Pane_Zoom <| zoomContainer {x=10, y=10} 
+        ]
+-- idea is: Pane stays still; child Container moves
 
+
+zoomContainer : Position -> Html ZoomDir
+zoomContainer pos =
+    div
+      [ style
+        [ ("border", "2px solid rgba(0,0,0,0.2)")
+        , ("margin-left", px pos.x)
+        , ("margin-top", px pos.y)
+        , ("float", "left")
+        , ("clear", "both")
+        , ("z-index", "1000")
+        , ("position", "relative")
+        , ("cursor", "auto")
+        ]
+      ]
+    [ zoomButtonView In, zoomButtonView Out ]
+    
+
+zoomButtonView : ZoomDir -> Html ZoomDir
+zoomButtonView s = 
+      a
+        [ onMouseDown <| always s
+        , attribute "role" "button"
+        , attribute "href" "#"
+        , style
+            [ ("height", "30px")
+            , ("width", "30px")
+            , ("font-size", "22px")
+            , ("text-align", "center")
+            , ("display", "block")
+            , ("background-color", "#fff")
+            , ("text-decoration", "none")
+            ]
+        ]
+        [zoomIconView s]
+
+zoomIconView : ZoomDir -> Html a
+zoomIconView z = case z of
+    In -> text "+"
+    Out -> text "-"
+    
+
+icon : Html a
+icon = 
+  let r = rect [ SA.width "40", SA.height "40"] []
+  in svg [] [r]
+
+viewContainer : Position -> List TileLayer -> Html a
+viewContainer pos ls =
+      div 
+        [ style
+            [ ( "left", px pos.x)
+            , ( "top", px pos.y)
+            , ("height", "100%")
+            , ("width", "100%")
+            , ("position", "absolute")
+          ]
+        ]
+        (List.map viewTileLayer ls)
 
 emptyPos = {x = 0, y = 0}
 emptyVel = {dx = 0.0, dy = 0.0 }

@@ -132,7 +132,6 @@ espg4326 =
   , transformation = (1 / 180, 1, -1 / 180, 0.5) }
 
 
---  Projects geographical coordinates into pixel coordinates for a given zoom.
 latLngToPoint : CRS -> Zoom -> LatLng -> Point
 latLngToPoint crs zoom coords = 
   let p  = crs.projection.project coords
