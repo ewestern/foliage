@@ -57,7 +57,6 @@ transform (a, b, c, d) scale point  =
     {  x = scale * (a * point.x + b)
     ,  y = scale * (c * point.y + d) }
 
--- Returns the reverse transformation of the given point, optionally divided
 untransform : Transformation -> Float -> Point -> Point
 untransform (a, b, c, d) scale point  = 
     { x = (point.x / scale - b) / a
@@ -128,19 +127,6 @@ espg4326 =
   , transformation = (1 / 180, 1, -1 / 180, 0.5) }
 
 
-latLngToPoint : CRS -> Zoom -> LatLng -> Point
-latLngToPoint crs zoom coords = 
-  let p  = crs.projection.project coords
-      scalar = scaleZoom zoom
-  in transform crs.transformation scalar p
-
-
-
-pointToLatLng : CRS -> Zoom -> Point -> LatLng
-pointToLatLng crs zoom point = 
-  let unT = untransform crs.transformation (scaleZoom zoom) point  
-  in 
-    crs.projection.unproject unT
     
 type alias TileSpec = 
   { x : Int

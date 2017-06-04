@@ -30,12 +30,15 @@ type alias MapOptions =
   , size : Size }
   
 
+-- TODO
 getInitialOrigin : Size -> CRS -> Zoom -> InitialCoords -> LatLng
 getInitialOrigin sz crs zoom ic = case ic of 
     Initial_Center ll -> 
-      let p = latLngToPoint crs zoom ll
+      let p = crs.projection.project ll -- TODO!
+-- latLngToPoint crs zoom ll
           p2 = difference p <| mapCoord ((*) 0.5 << toFloat) sz
-      in pointToLatLng crs zoom p2
+      in crs.projection.unproject p2
+-- pointToLatLng crs zoom p2
     Initial_Bounds bs -> bs.sw
 
 
