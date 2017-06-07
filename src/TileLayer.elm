@@ -50,9 +50,7 @@ makeUrl = replace All tempReg << replacer
 type alias TileKey = String
 
 type alias Level = 
-  { zoom : Zoom
-  --, origin : Point
-  , tiles : Dict TileKey Tile }
+  { zoom : Zoom, tiles : Dict TileKey Tile }
 
 type alias TileLayer =
   { urlTemplate : String
@@ -67,28 +65,72 @@ type alias TileLayer =
 Updates the position of a TileLayer
 -}
 
+{-
+the Mercator degrees / pixels ratio will be different at different zooms (and lattitudes, probably). 
+if the tile coordinate is the mercator degree scaled to the number of tiles across it's range, then the relative pixel is that range times the tilesize
+
+
+
+-}
 moveLayer : Position -> TileLayer -> TileLayer
 moveLayer pos tl = 
   let pointOrigin = tl.crs.projection.project tl.latLngOrigin
-      --pointOrigin = latLngToPoint tl.crs tl.currentZoom tl.latLngOrigin
-      effectiveOrigin = sum pointOrigin <| mapCoord toFloat pos
+-- get the mercator origin at the current nw cornder of the map
+      effectiveOrigin = difference pointOrigin <| doThing tl.crs tl.size tl.currentZoom pos
+-- sum pointOrigin <| mapCoord toFloat pos
       level = Maybe.withDefault (createLevel tl.currentZoom) <| Dict.get tl.currentZoom tl.levels 
       newLevel = updateLevel tl.crs tl.urlTemplate tl.currentZoom tl.size pointOrigin effectiveOrigin level
   in 
-    { tl |
-        levels = Dict.insert tl.currentZoom newLevel tl.levels } 
+    { tl | levels = Dict.insert tl.currentZoom newLevel tl.levels }
 
-getLocalPosition : Position -> Size -> Position -> Position
-getLocalPosition origin tilesize coords = 
-  difference (product coords tilesize) origin
+{-|
+With {0,0} representing the origin NW corner, find the coordinate at which to place a tile
 
+-}
+
+-- want a number, such that we can add to pointOrigin (sw corder)
+adjustPosition : Size -> Position -> Position
+adjustPosition paneSize pos = {x=pos.x, y=paneSize.y - pos.y }
+
+
+tileNameToPixel : Position -> Position
+tileNameToPixel pos = product tileSize pos
+
+pixelToTileName : Position -> Point
+pixelToTileName px = quotient (mapCoord toFloat px) (mapCoord toFloat tileSize)
+
+mercatorToPixel : CRS -> Zoom -> Point -> Position
+mercatorToPixel crs zoom pnt = 
+  let tn = getTileName crs zoom pnt
+  in tileNameToPixel tn
+
+
+doThing : CRS -> Size -> Zoom -> Position -> Point
+doThing crs size zoom pos = 
+  difference  (pixelToMercator crs zoom pos) (pixelToMercator crs zoom {x=0, y=0})
+
+pixelToMercator : CRS -> Zoom -> Position -> Point
+pixelToMercator crs zoom pos = tileNameToPoint crs zoom <| pixelToTileName pos
+
+getLocalPosition : CRS -> Size -> Zoom -> Point -> Position -> Position
+getLocalPosition crs size zoom origin tileName = 
+    difference (tileNameToPixel tileName) (mercatorToPixel crs zoom origin)
+
+
+{-|
+From a tile name, retrieve a mercator-projected point.
+
+-}
+tileNameToPoint : CRS -> Zoom -> Point -> Point
+tileNameToPoint crs zoom coord = 
+  let scalar = 2 ^ (toFloat zoom)
+  in  untransform crs.transformation scalar coord
 
 getTileName : CRS -> Zoom -> Point -> Position
 getTileName crs zoom point  = 
   let scalar = 2 ^ (toFloat zoom)
-      p = transform crs.transformation scalar point
+  in mapCoord floor <| transform crs.transformation scalar point
       -- transform the point such that, instead of represention a point on earth, it represents a "point" on a grid (2^zoom) x (2^zoom) in size
-  in mapCoord floor p
 
 
 getTileRange : CRS -> Zoom -> Size -> Point -> Bounds Position
@@ -104,16 +146,16 @@ updateLevel : CRS -> String -> Zoom -> Size -> Point -> Point -> Level -> Level
 updateLevel crs temp z paneSize pointOrigin newOrigin level =
   let tr = getTileRange crs z paneSize newOrigin
       pairs = List.concat <| List.map (\x -> List.map (\y -> (x,y) ) (range tr.sw.y tr.ne.y) ) (range tr.sw.x tr.ne.x)
-      ts =  List.map (\(x,y) -> createTile temp pointOrigin z {x=x, y=y}) pairs
+      ts =  List.map (\(x,y) -> createTile crs paneSize temp pointOrigin z {x=x, y=y}) pairs
       newTiles = Dict.fromList <| List.map (\t -> (tileCoordsToKey t.position, t)) ts
   in 
     { zoom = z, tiles = Dict.union newTiles level.tiles  }
 
-createTile : String -> Point -> Zoom -> Position -> Tile
-createTile temp pointOrigin zoom tilepos = 
+createTile : CRS -> Size -> String -> Point -> Zoom -> Position -> Tile
+createTile crs size temp pointOrigin zoom tilepos = 
   { url = makeUrl {x=tilepos.x, y=tilepos.y, z=zoom } temp
   , current = True
-  , position = getLocalPosition (mapCoord round pointOrigin) tileSize tilepos }
+  , position = getLocalPosition crs size zoom pointOrigin tilepos }
 
 
 tileCoordsToKey : Position -> TileKey

@@ -163,7 +163,7 @@ updatePane action pane =
             newPane = 
                 { pane |
                   dragstate = dsNew
-                , tileLayers = List.map (updatePaneLayer da) pane.tileLayers
+                , tileLayers = List.map (updateTileLayer <| TileLayer_Move <| Debug.log "POS" posNew ) pane.tileLayers
                 , position =  posNew }
             cmd = Cmd.map Pane_Drag <| updateDragCommand da
         in (newPane, cmd)
@@ -173,16 +173,6 @@ updatePane action pane =
       Pane_Empty -> Debug.crash "FOO"
           
       
-
-updatePaneLayer : DragAction -> TileLayer -> TileLayer
-updatePaneLayer da tl = 
-  case da of
-    DragStart pos -> updateTileLayer (TileLayer_Move pos) tl
-    DragAt pos    -> updateTileLayer (TileLayer_Move pos) tl
-    DragCoast pos -> updateTileLayer (TileLayer_Move pos) tl
-    _             ->  tl
-
-
 viewPane : MapPane -> Html PaneAction
 viewPane  pane =
       div
