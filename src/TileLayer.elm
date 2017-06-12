@@ -65,19 +65,10 @@ type alias TileLayer =
 Updates the position of a TileLayer
 -}
 
-{-
-the Mercator degrees / pixels ratio will be different at different zooms (and lattitudes, probably). 
-if the tile coordinate is the mercator degree scaled to the number of tiles across it's range, then the relative pixel is that range times the tilesize
-
-
-
--}
 moveLayer : Position -> TileLayer -> TileLayer
 moveLayer pos tl = 
   let pointOrigin = tl.crs.projection.project tl.latLngOrigin
--- get the mercator origin at the current nw cornder of the map
-      effectiveOrigin = Debug.log "EO" <| difference pointOrigin <| doThing tl.crs tl.size tl.currentZoom pos
--- sum pointOrigin <| mapCoord toFloat pos
+      effectiveOrigin = difference pointOrigin <| doThing tl.crs tl.size tl.currentZoom pos
       level = Maybe.withDefault (createLevel tl.currentZoom) <| Dict.get tl.currentZoom tl.levels 
       newLevel = updateLevel tl.crs tl.urlTemplate tl.currentZoom tl.size pointOrigin effectiveOrigin level
   in 
@@ -92,10 +83,6 @@ doThing crs size zoom pos =
 With {0,0} representing the origin NW corner, find the coordinate at which to place a tile
 
 -}
-
-
---tileNameToPixel : Position -> Position
---tileNameToPixel pos = product tileSize pos
 
 
 getTileName : CRS -> Zoom -> Point -> Position

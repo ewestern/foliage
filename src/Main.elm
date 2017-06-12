@@ -2,15 +2,33 @@ module Main exposing (..)
 
 import Map exposing (..)
 import Html
+import VectorLayer exposing (..)
+import Http
+import Result
+import GeoJSON
+import String
 
 -- MODEL
+
+getPoint : LatLng ->  String
+getPoint ll = String.join "," <| map toString [ll.lat,ll.lng]
+
+getGeometry : Bounds -> Cmd Geometry
+getGeometry bounds = 
+  Http.get ("http://localhost:8081/bounds?srid=4326&sw= " ++ getPoint bounds.sw ++ ",ne=" ++ getPoint bounds.ne ) decodeGeometry 
+
+
+--vectorLayer = 
+  --{
+    --geometry = 
+  --, options: 
+  --}
 
 ---- UPDATE
 defaultOptions = 
   { size = {x = 500, y = 300 }
   , initialCoords = Initial_Bounds { sw =  { lat = 36.1, lng=-118.5 }, ne = { lat = 36.2, lng= -118.2 } }
   , initialZoom = 10
-  --, crs = espg4326
   , tileUrl = Just "https://api.mapbox.com/styles/v1/mapbox/outdoors-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZXdlc3Rlcm4iLCJhIjoiY2lmY2Z5eWNsM3Y2OHN4bTdndmJha29kZCJ9.8hIQ8iTAmMZD__3uHytwvw" }
 
 
