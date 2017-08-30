@@ -7,6 +7,7 @@ import Html.Attributes exposing (..)
 import Regex exposing (Regex, regex, replace, HowMany(..), Match)
 import Dict exposing (Dict)
 
+import Layer exposing (..)
 import Geo exposing (..)
 import Util exposing (px, catMaybe, range, zip)
 
@@ -14,9 +15,6 @@ type TileLayerAction
   = TileLayer_Move Position
   | TileLayer_Zoom ZoomDir
 
-type ZoomDir
-  = In
-  | Out
 
 incZoom : ZoomDir -> Zoom -> Zoom
 incZoom zd z =  case zd of
@@ -61,79 +59,26 @@ type alias TileLayer =
   , currentZoom : Zoom }
 
 
+
 {-|
 Updates the position of a TileLayer
 -}
 
-moveLayer : Position -> TileLayer -> TileLayer
-moveLayer pos tl = 
+moveTileLayer : Position -> TileLayer -> TileLayer
+moveTileLayer pos tl = 
   let pointOrigin = tl.crs.projection.project tl.latLngOrigin
-      effectiveOrigin = difference pointOrigin <| doThing tl.crs tl.size tl.currentZoom pos
+      effectiveOrigin = difference pointOrigin <| makePixelDelta tl.crs tl.size tl.currentZoom pos
       level = Maybe.withDefault (createLevel tl.currentZoom) <| Dict.get tl.currentZoom tl.levels 
       newLevel = updateLevel tl.crs tl.urlTemplate tl.currentZoom tl.size pointOrigin effectiveOrigin level
   in 
     { tl | levels = Dict.insert tl.currentZoom newLevel tl.levels }
 
-doThing : CRS -> Size -> Zoom -> Position -> Point
-doThing crs size zoom pos = 
-  difference  (pixelToMercator crs zoom pos) (pixelToMercator crs zoom {x=0, y=0})
+-- translate size into latlng deltas
+makePixelDelta : CRS -> Size -> Zoom -> Position -> Point
+makePixelDelta crs size zoom pos = 
+  difference  (tileNameToProjected crs zoom pos) (tileNameToProjected crs zoom {x=0, y=0})
 
 
-{-|
-With {0,0} representing the origin NW corner, find the coordinate at which to place a tile
-
--}
-
-
-getTileName : CRS -> Zoom -> Point -> Position
-getTileName crs zoom = mapCoord floor << getTileOrigin crs zoom 
-
-
-mercatorToPixel : CRS -> Zoom -> Point -> Position
-mercatorToPixel crs zoom pnt = 
-  let to = getTileOrigin crs zoom pnt
-  in mapCoord floor <| product (mapCoord toFloat tileSize) to
-
-
-pixelToMercator : CRS -> Zoom -> Position -> Point
-pixelToMercator crs zoom pos = 
-  let tn = quotient (mapCoord toFloat pos) (mapCoord toFloat tileSize)
-  in tileNameToPoint crs zoom  tn
-
-
-
-{-
-This should be: 
-Given: the point of the pane's origin (sw), the point of the tile's origin  (nw), (and zoom, crs) show the pixel displacement
-
--}
-
---getLocalPositionNew
-
-getPosition  : CRS -> Zoom -> Size -> Point -> Point -> Position
-getPosition crs zoom size paneOrigin tileOrigin = 
-  let pntDiff = difference (sum paneOrigin {x=0, y=toFloat size.y})  tileOrigin
-  in mercatorToPixel crs zoom pntDiff
-
-getLocalPosition : CRS -> Size -> Zoom -> Point -> Position -> Position
-getLocalPosition crs size zoom origin tileName = 
-    -- difference (pixels from mercator origin of tile origin (nw)) (pixels form mercator origin of pane origin (sw))
-    difference (product tileName tileSize) (mercatorToPixel crs zoom origin)
-
-{-|
-From a tile name, retrieve a mercator-projected point.
-
--}
-tileNameToPoint : CRS -> Zoom -> Point -> Point
-tileNameToPoint crs zoom coord = 
-  let scalar = 2 ^ (toFloat zoom)
-  in  untransform crs.transformation scalar coord
-
-getTileOrigin :CRS -> Zoom -> Point -> Point 
-getTileOrigin crs zoom point =
-  let scalar = 2 ^ (toFloat zoom)
-  in transform crs.transformation scalar point
-      -- transform the point such that, instead of represention a point on earth, it represents a "point" on a grid (2^zoom) x (2^zoom) in size
 
 getTileRange : CRS -> Zoom -> Size -> Point -> Bounds Position
 getTileRange crs zoom size point = 
@@ -146,18 +91,37 @@ getTileRange crs zoom size point =
 
 updateLevel : CRS -> String -> Zoom -> Size -> Point -> Point -> Level -> Level
 updateLevel crs temp z paneSize pointOrigin newOrigin level =
-  let tr = Debug.log "FOO" <| getTileRange crs z paneSize newOrigin
+  let tr = getTileRange crs z paneSize newOrigin
       pairs = List.concat <| List.map (\x -> List.map (\y -> (x,y) ) (range tr.sw.y tr.ne.y) ) (range tr.sw.x tr.ne.x)
-      ts =  List.map (\(x,y) -> createTile crs paneSize temp pointOrigin z {x=x, y=y}) pairs
+      ts =  List.map (\(x,y) -> createTile crs temp pointOrigin z {x=x, y=y}) pairs
       newTiles = Dict.fromList <| List.map (\t -> (tileCoordsToKey t.position, t)) ts
   in 
     { zoom = z, tiles = Dict.union newTiles level.tiles  }
 
-createTile : CRS -> Size -> String -> Point -> Zoom -> Position -> Tile
-createTile crs size temp pointOrigin zoom tilepos = 
+tileNameToProjected : CRS -> Zoom -> Position -> Point
+tileNameToProjected crs zoom pos = 
+  let tn = quotient (mapCoord toFloat pos) (mapCoord toFloat tileSize)
+-- TODO: is this right?
+  in pixelToProjected crs zoom tn
+
+projectedToTileName : CRS -> Zoom -> Point -> Position
+projectedToTileName crs zoom pnt = 
+  let to = projectedToPixel crs zoom pnt
+  in mapCoord floor to -- <| product (mapCoord toFloat tileSize) to
+
+
+
+getTilePosition : CRS -> Zoom -> Point -> Position -> Position
+getTilePosition crs zoom origin pos = 
+    -- difference (pixels from mercator origin of tile origin (nw)) (pixels form mercator origin of pane origin (sw))
+    difference (product pos tileSize) (projectedToTileName crs zoom origin)
+
+
+createTile : CRS -> String -> Point -> Zoom -> Position -> Tile
+createTile crs temp pointOrigin zoom tilepos = 
   { url = makeUrl {x=tilepos.x, y=tilepos.y, z=zoom } temp
   , current = True
-  , position = getLocalPosition crs size zoom pointOrigin tilepos }
+  , position = getTilePosition crs zoom pointOrigin tilepos }
 
 
 tileCoordsToKey : Position -> TileKey
@@ -172,10 +136,10 @@ tileSize =
 updateTileLayer : TileLayerAction -> TileLayer -> TileLayer
 updateTileLayer tla tl = 
   case tla of
-    TileLayer_Move pos -> moveLayer pos tl
+    TileLayer_Move pos -> moveTileLayer pos tl
     TileLayer_Zoom zd ->  
       let nz = incZoom zd tl.currentZoom
-      in moveLayer {x=0,y=0} { tl | currentZoom = nz }
+      in moveTileLayer {x=0,y=0} { tl | currentZoom = nz }
 
 createLevel : Zoom -> Level
 createLevel z =

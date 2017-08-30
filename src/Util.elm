@@ -1,4 +1,11 @@
 module Util exposing (..)
+import Dict
+import GeoJSON
+import Dict
+import Types exposing (..)
+import Json.Decode as D
+import String
+import Result
 
 px : Int -> String
 px number =
@@ -30,6 +37,35 @@ zip a b = case a of
         [] -> []
         y::ys ->  (x,y)::zip xs ys
 
+type alias Segment = 
+  { trailType : String
+  , sacScale : Maybe String
+  , geometry : Geometry
+  }
 
+type alias Ref = Int
+
+ 
+
+decodeRef : D.Decoder Ref
+decodeRef = 
+  let f str = Result.withDefault 0 <| String.toInt str
+  in D.map f D.string 
+
+decodeSegment : D.Decoder Segment
+decodeSegment = 
+    D.map3 Segment 
+      (D.field "trailType" D.string)
+      (D.field "sacScale" <| D.nullable D.string)
+      (D.field "geometry" GeoJSON.decodeGeometry )
+
+segmentPairDecoder : D.Decoder (Ref, Segment)
+segmentPairDecoder = 
+  let ds = D.index 1 decodeSegment
+      dr = D.index 0 decodeRef
+  in D.andThen (\seg -> D.map (\r -> (r, seg)) dr) ds
+
+segmentDictDecoder : D.Decoder (Dict.Dict Ref Segment)
+segmentDictDecoder = D.map Dict.fromList <| D.list segmentPairDecoder
 
 

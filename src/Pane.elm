@@ -17,7 +17,9 @@ import Html.Events exposing (on)
 
 --
 import Util exposing (px)
+import Layer exposing (ZoomDir(..))
 import TileLayer exposing (..)
+import VectorLayer exposing (VectorLayer, VectorOptions, VectorLayerAction(..), updateVectorLayer)
 import Geo exposing (LatLng, Size, Position)
 
 
@@ -34,6 +36,7 @@ type DragAction
 type PaneAction
     = Pane_Drag DragAction
     | Pane_Zoom ZoomDir
+    | Pane_Vector VectorLayerAction 
     | Pane_Empty
 
 
@@ -46,7 +49,8 @@ type alias Velocity =
 type alias MapPane = 
   { dragstate : DragState
   , tileLayers : List TileLayer
-  , vectorLayers : List Int
+  --, geometry : GetGeometry
+  , vectorLayers : List VectorLayer
   , latLngCenter : LatLng
   , size : Size
   , position : Position
@@ -154,22 +158,43 @@ updateDragCommand da =
 
 
 
+-- makeVectorLayer : LatLng -> CRS -> Zoom -> VectorOptions -> VectorLayer
+
+updateVectorLayerWithDragAction : DragAction -> Position -> List VectorLayer -> (Cmd PaneAction, List VectorLayer)
+updateVectorLayerWithDragAction da pos vls = 
+  case da of
+    DragCoastEnd  -> 
+        let rs = List.map(updateVectorLayer <| VectorLayer_Move pos) vls
+            (newvls, vcmd) = List.foldr (\(vl, c) (vs, cs) -> (vl::vs ,(Cmd.map Pane_Vector c)::cs)) ([], []) rs
+        in (Cmd.batch vcmd, newvls)
+    _             -> (Cmd.none, vls)
+
+
 updatePane : PaneAction -> MapPane -> (MapPane, Cmd PaneAction)
 updatePane action pane = 
     case action of
       Pane_Drag da -> 
         let dsNew = updateDragState da pane.dragstate
             posNew = Maybe.withDefault pane.position <| Maybe.map (\d -> addVelocity pane.position d.velocity) dsNew
+            (vcmd, vls) = updateVectorLayerWithDragAction da posNew pane.vectorLayers
+
             newPane = 
                 { pane |
                   dragstate = dsNew
-                , tileLayers = List.map (updateTileLayer <| TileLayer_Move <| Debug.log "POS" posNew ) pane.tileLayers
+                , tileLayers = List.map (updateTileLayer <| TileLayer_Move posNew ) pane.tileLayers
+                , vectorLayers = vls
                 , position =  posNew }
-            cmd = Cmd.map Pane_Drag <| updateDragCommand da
+            dragCmd = Cmd.map Pane_Drag <| updateDragCommand da
+            cmd = Cmd.batch [dragCmd, vcmd]
         in (newPane, cmd)
       Pane_Zoom zd ->  
+-- TODO: update vectory layer
         let np =  { pane | tileLayers = List.map (updateTileLayer (TileLayer_Zoom zd)) pane.tileLayers  } 
         in (np, Cmd.none)
+      Pane_Vector vla -> 
+        let newVLS = List.map(updateVectorLayer vla) pane.vectorLayers
+            (vls, vcmd) = List.foldr (\(vl, c) (vs, cs) -> (vl::vs ,(Cmd.map Pane_Vector c)::cs)) ([], []) newVLS
+        in ({ pane | vectorLayers = vls }, Cmd.batch vcmd) 
       Pane_Empty -> Debug.crash "FOO"
           
       

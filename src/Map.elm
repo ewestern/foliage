@@ -8,7 +8,8 @@ import Dict
 import Pane exposing (..)
 import Geo exposing (..)
 import Util exposing (..)
-import TileLayer exposing (TileLayer, moveLayer)
+import TileLayer exposing (TileLayer, updateTileLayer, TileLayerAction(..))
+import VectorLayer exposing (VectorLayer, VectorOptions)
 
 
 type alias Map
@@ -26,7 +27,9 @@ type Action
 type alias MapOptions =
   { tileUrl : Maybe String
   , initialCoords : InitialCoords
+  , vectorOptions : VectorOptions
   , initialZoom : Zoom
+  , crs : CRS
   , size : Size }
   
 
@@ -34,33 +37,43 @@ type alias MapOptions =
 getInitialOrigin : Size -> CRS -> Zoom -> InitialCoords -> LatLng
 getInitialOrigin sz crs zoom ic = case ic of 
     Initial_Center ll -> 
-      let p = crs.projection.project ll -- TODO!
--- latLngToPoint crs zoom ll
+      let p = crs.projection.project ll
           p2 = difference p <| mapCoord ((*) 0.5 << toFloat) sz
       in crs.projection.unproject p2
--- pointToLatLng crs zoom p2
     Initial_Bounds bs -> bs.sw
 
 
-makeMap : MapOptions -> Map
-makeMap mo = 
-  let pane = makePane mo
+makeMap : VectorOptions -> MapOptions -> Map
+makeMap vo mo = 
+  let pane = makePane vo mo
   in { size = mo.size, pane = pane }
 
-makePane : MapOptions-> MapPane
-makePane mo = 
-    let crs = espg3857
-        ll = getInitialOrigin mo.size crs mo.initialZoom mo.initialCoords
+mkVectorLayer vectorOptions crs size ll zoom = 
+  {
+    options = vectorOptions
+  , geometry = []
+  , size = size
+  , lastFetch = {x=0,y=0}
+  , latLngOrigin = ll
+  , crs = crs
+  , currentZoom = zoom
+  }
+
+makePane : VectorOptions -> MapOptions -> MapPane
+makePane vo mo = 
+    let ll = getInitialOrigin mo.size mo.crs mo.initialZoom mo.initialCoords
         initialLayer = 
           Maybe.map (\url -> 
-              { urlTemplate = url, size = mo.size, levels = Dict.empty, crs=crs, currentZoom = mo.initialZoom, latLngOrigin=ll }) mo.tileUrl
+              { urlTemplate = url, size = mo.size, levels = Dict.empty, crs=mo.crs, currentZoom = mo.initialZoom, latLngOrigin=ll }) mo.tileUrl
+        -- convert vectorLayerOptions into vectoryLayers
+        --vls = 
     in
       { dragstate = Nothing
       , size = mo.size
       , position = emptyPos -- the origin of the pane, relative to the origin of the map, in pixels
       , latLngCenter = ll
-      , tileLayers = List.map (moveLayer {x=0, y=0}) <| catMaybe [initialLayer] 
-      , vectorLayers = [] }
+      , tileLayers = List.map (updateTileLayer (TileLayer_Move {x=0, y=0})) <| catMaybe [initialLayer] 
+      , vectorLayers = [mkVectorLayer vo mo.crs mo.size ll mo.initialZoom] }
 
 mapView : Map -> Html.Html Action
 mapView  map =  

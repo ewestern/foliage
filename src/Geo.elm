@@ -66,6 +66,7 @@ untransform (a, b, c, d) scale point  =
 type alias CRS = 
   { code: String
   , projection: Projection
+  , scale : Int -> Float
   , transformation: Transformation}
 
 
@@ -97,17 +98,15 @@ espg3857 : CRS
 espg3857 =
   { code = "ESPG:3857"
   , projection = sphericalMercatorProjection
+  , scale = \zoom -> toFloat <| 256 * (2 ^ zoom)
   , transformation = 
       let scale = 0.5 / (pi * earthRadius)
       in (scale, 0.5, -scale, 0.5) }
 
-scaleZoom : Zoom -> Float
-scaleZoom zoom = 256 * (2 ^ (toFloat zoom))
-
 projectedBounds : CRS -> Zoom -> Bounds Point
 projectedBounds crs zoom = 
   let b = crs.projection.bounds
-      s = scaleZoom zoom
+      s = crs.scale zoom
       min = transform crs.transformation s b.sw
       max = transform crs.transformation s b.ne 
   in 
@@ -124,6 +123,7 @@ espg4326 : CRS
 espg4326 = 
   { code = "ESPG:4326"
   , projection = lonLatProjection
+  , scale = \zoom -> toFloat <| 256 * (2 ^ zoom)
   , transformation = (1 / 180, 1, -1 / 180, 0.5) }
 
 
