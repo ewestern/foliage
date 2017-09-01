@@ -19,7 +19,7 @@ import Html.Events exposing (on)
 import Util exposing (px)
 import Layer exposing (ZoomDir(..))
 import TileLayer exposing (..)
-import VectorLayer exposing (VectorLayer, VectorOptions, VectorLayerAction(..), updateVectorLayer)
+import VectorLayer exposing (VectorLayer, VectorOptions, VectorLayerAction(..), updateVectorLayer, vectorLayersView)
 import Geo exposing (LatLng, Size, Position)
 
 
@@ -210,6 +210,7 @@ viewPane  pane =
             ]
         ] 
         [ viewContainer pane.position pane.tileLayers
+        , Html.map Pane_Vector <| vectorLayersView pane.vectorLayers
         , Html.map Pane_Zoom <| zoomContainer {x=10, y=10} 
         ]
 -- idea is: Pane stays still; child Container moves

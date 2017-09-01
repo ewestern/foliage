@@ -53,7 +53,6 @@ mkVectorLayer vectorOptions crs size ll zoom =
     options = vectorOptions
   , geometry = []
   , size = size
-  , lastFetch = {x=0,y=0}
   , latLngOrigin = ll
   , crs = crs
   , currentZoom = zoom

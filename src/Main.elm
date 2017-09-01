@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Map exposing (..)
 import Html
-import Geo exposing (espg3857)
+import Geo exposing (espg3857, LatLng)
 import VectorLayer exposing (..)
 import Types exposing (..)
 import Json.Decode as D
@@ -42,7 +42,7 @@ mkDefaultOptions crs size ll zoom =
   { size = size
   , initialCoords = ll
   , crs = crs
-  , vectorOptions = {stroke = "", color="", weight="" , getGeometry=getGeometry, fetchThreshold=100}
+  , vectorOptions = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometry}
   , initialZoom = zoom
   , tileUrl = Just "https://api.mapbox.com/styles/v1/mapbox/outdoors-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZXdlc3Rlcm4iLCJhIjoiY2lmY2Z5eWNsM3Y2OHN4bTdndmJha29kZCJ9.8hIQ8iTAmMZD__3uHytwvw" }
 
@@ -51,7 +51,7 @@ mkDefaultOptions crs size ll zoom =
 init : (Map, Cmd Action)
 init = 
   let mOpts = mkDefaultOptions  espg3857 {x = 500, y = 300 } (Initial_Center { lat = 36.1, lng=-118.5 }) 10 
-      vOpts = {stroke = "", color="", weight="" , getGeometry=getGeometry, fetchThreshold=10.0}
+      vOpts = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometry}
   in (makeMap vOpts mOpts, Cmd.none)
 
 
