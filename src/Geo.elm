@@ -21,9 +21,15 @@ mapCoord f {x,y} =
   { x = f x
   , y = f y }
 
+
 type alias Bounds a =
   { sw : a 
   , ne : a }
+
+mapBounds : (a -> b) -> Bounds a -> Bounds b
+mapBounds f {sw,ne} =
+        { sw = f sw
+        , ne = f ne }
 
 
 scaleBy : (number -> number -> number) -> Coord number -> Coord number -> Coord number

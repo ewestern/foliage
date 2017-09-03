@@ -6,6 +6,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Regex exposing (Regex, regex, replace, HowMany(..), Match)
 import Dict exposing (Dict)
+import Set exposing (Set)
 
 import Layer exposing (..)
 import Geo exposing (..)
@@ -48,7 +49,7 @@ makeUrl = replace All tempReg << replacer
 type alias TileKey = String
 
 type alias Level = 
-  { zoom : Zoom, tiles : Dict TileKey Tile }
+  { zoom : Zoom, tiles : List Tile }
 
 type alias TileLayer =
   { urlTemplate : String
@@ -66,71 +67,39 @@ Updates the position of a TileLayer
 
 moveTileLayer : Position -> TileLayer -> TileLayer
 moveTileLayer pos tl = 
-  let pointOrigin = tl.crs.projection.project tl.latLngOrigin
-      effectiveOrigin = difference pointOrigin <| makePixelDelta tl.crs tl.size tl.currentZoom pos
+  let pointOrigin = latLngToPoint tl.crs tl.currentZoom tl.latLngOrigin
       level = Maybe.withDefault (createLevel tl.currentZoom) <| Dict.get tl.currentZoom tl.levels 
-      newLevel = updateLevel tl.crs tl.urlTemplate tl.currentZoom tl.size pointOrigin effectiveOrigin level
+      newLevel = updateLevel tl.crs tl.urlTemplate tl.currentZoom tl.size pointOrigin pos level
   in 
     { tl | levels = Dict.insert tl.currentZoom newLevel tl.levels }
 
--- translate size into latlng deltas
-makePixelDelta : CRS -> Size -> Zoom -> Position -> Point
-makePixelDelta crs size zoom pos = 
-  difference  (tileNameToProjected crs zoom pos) (tileNameToProjected crs zoom {x=0, y=0})
-
-
-
-getTileRange : CRS -> Zoom -> Size -> Point -> Bounds Position
-getTileRange crs zoom size point = 
-  let scalar = 2 ^ zoom
-      or = transform crs.transformation (toFloat scalar) point
-      ratio = quotient (mapCoord toFloat size) (mapCoord toFloat tileSize)
-      ne = sum or ratio
-  in { sw = mapCoord floor or, ne = mapCoord floor ne }
-    
-
-updateLevel : CRS -> String -> Zoom -> Size -> Point -> Point -> Level -> Level
-updateLevel crs temp z paneSize pointOrigin newOrigin level =
-  let tr = getTileRange crs z paneSize newOrigin
+updateLevel : CRS -> String -> Zoom -> Size -> Point -> Position -> Level -> Level
+updateLevel crs temp z paneSize pointOrigin pos level =
+  let newOrigin = sum (mapCoord toFloat pos) pointOrigin
+      tr = getTileRange crs z paneSize newOrigin
       pairs = List.concat <| List.map (\x -> List.map (\y -> (x,y) ) (range tr.sw.y tr.ne.y) ) (range tr.sw.x tr.ne.x)
-      ts =  List.map (\(x,y) -> createTile crs temp pointOrigin z {x=x, y=y}) pairs
-      newTiles = Dict.fromList <| List.map (\t -> (tileCoordsToKey t.position, t)) ts
+      ts =  List.map (\(x,y) -> createTile temp z pointOrigin {x=x, y=y}) pairs
   in 
-    { zoom = z, tiles = Dict.union newTiles level.tiles  }
-
-tileNameToProjected : CRS -> Zoom -> Position -> Point
-tileNameToProjected crs zoom pos = 
-  let tn = quotient (mapCoord toFloat pos) (mapCoord toFloat tileSize)
--- TODO: is this right?
-  in pixelToProjected crs zoom tn
-
-projectedToTileName : CRS -> Zoom -> Point -> Position
-projectedToTileName crs zoom pnt = 
-  let to = projectedToPixel crs zoom pnt
-  in mapCoord floor to -- <| product (mapCoord toFloat tileSize) to
-
-
-
-getTilePosition : CRS -> Zoom -> Point -> Position -> Position
-getTilePosition crs zoom origin pos = 
-    -- difference (pixels from mercator origin of tile origin (nw)) (pixels form mercator origin of pane origin (sw))
-    difference (product pos tileSize) (projectedToTileName crs zoom origin)
-
-
-createTile : CRS -> String -> Point -> Zoom -> Position -> Tile
-createTile crs temp pointOrigin zoom tilepos = 
-  { url = makeUrl {x=tilepos.x, y=tilepos.y, z=zoom } temp
-  , current = True
-  , position = getTilePosition crs zoom pointOrigin tilepos }
-
-
-tileCoordsToKey : Position -> TileKey
-tileCoordsToKey p = String.join ":" <| List.map toString [p.x, p.y]
-
+    { zoom = z, tiles = List.append level.tiles ts }
 
 tileSize = 
   { x = 256
   , y = 256 }
+
+getTileRange : CRS -> Zoom -> Size -> Point -> Bounds Position
+getTileRange crs zoom size point = 
+  let sf = mapCoord toFloat size
+      bs = {sw = point, ne= sum point sf }
+  in mapBounds (mapCoord round << (\co -> quotient co tileSize) ) bs
+      
+createTile : String -> Zoom -> Point -> Position -> Tile
+createTile temp zoom pointOrigin tilepos = 
+  let np = product tileSize <| mapCoord toFloat tilepos
+  in 
+    { url = makeUrl {x=tilepos.x, y=tilepos.y, z=zoom } temp
+    , current = True
+    , position = Debug.log "POS" <| mapCoord round <| difference np <| Debug.log "PO" pointOrigin }
+
 
 
 updateTileLayer : TileLayerAction -> TileLayer -> TileLayer
@@ -144,7 +113,7 @@ updateTileLayer tla tl =
 createLevel : Zoom -> Level
 createLevel z =
   { zoom = z
-  , tiles = Dict.empty }
+  , tiles = [] }
 
 getDefault : v -> comparable -> Dict comparable v -> v
 getDefault def k d = 
@@ -162,7 +131,7 @@ viewTileLayer tl =
           , ("width", "100%")
           ]
         ]
-        ( List.map viewTile <| Dict.values <| level.tiles)
+        (List.map viewTile level.tiles)
 
 viewTile : Tile -> Html a
 viewTile t = 

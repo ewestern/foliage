@@ -14,12 +14,19 @@ type ZoomDir
 type alias Layer a 
   = { a | 
       size : Size
-    , latLngOrigin : LatLng
+    --, latLngOrigin : LatLng
     , crs : CRS
     , currentZoom : Zoom }
 
+--updateLayerOrigin : Position -> Layer -> Layer
+--updateLayerOrigin pos layer =
+  
+      
+
+
 
 -- transform the point such that, instead of represention a point on earth, it represents a "point" on a grid (2^zoom) x (2^zoom) in size
+{-
 projectedToPixel : CRS -> Zoom -> Point -> Point 
 projectedToPixel crs zoom point =
   let scalar = crs.scale zoom
@@ -29,6 +36,7 @@ pixelToProjected : CRS -> Zoom -> Point -> Point
 pixelToProjected crs zoom coord = 
   let scalar = crs.scale zoom
   in  untransform crs.transformation scalar coord
+-}
 
 
 latLngToPoint : CRS -> Zoom -> LatLng -> Point

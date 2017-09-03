@@ -4,6 +4,7 @@ import Map exposing (..)
 import Html
 import Geo exposing (espg3857, LatLng)
 import VectorLayer exposing (..)
+import Pane exposing (PaneAction(..))
 import Types exposing (..)
 import Json.Decode as D
 import Dict
@@ -52,7 +53,9 @@ init : (Map, Cmd Action)
 init = 
   let mOpts = mkDefaultOptions  espg3857 {x = 500, y = 300 } (Initial_Center { lat = 36.1, lng=-118.5 }) 10 
       vOpts = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometry}
-  in (makeMap vOpts mOpts, Cmd.none)
+      f = A << Pane_Vector << VectorLayer_Geometry 
+      ib = getInitialBounds mOpts.size mOpts.crs mOpts.initialZoom  mOpts.initialCoords
+  in (makeMap vOpts mOpts, Cmd.map f <| getGeometry ib  )
 
 
 main =

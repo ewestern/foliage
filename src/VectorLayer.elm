@@ -58,8 +58,10 @@ updateVectorLayer vla vl =
   case vla of
     VectorLayer_Geometry geos -> 
         ( { vl | geometry = List.append vl.geometry geos }, Cmd.none )
---- TODO: no! Only do this on dragend
     VectorLayer_Move pos -> 
+        --( { vl | latLngOrigin = }, Cmd.none)
+----- TODO: no! Only do this on dragend
+    --VectorLayer_MoveEnd pos -> 
       let newOrigin = getPannedLatLng vl.crs vl.currentZoom pos vl.latLngOrigin
           bounds = getBounds vl.crs vl.currentZoom vl.size newOrigin
       in 
