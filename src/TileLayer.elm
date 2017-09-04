@@ -16,6 +16,7 @@ type TileLayerAction
   = TileLayer_Move Position
   | TileLayer_Zoom ZoomDir
 
+type alias TileAddress = (Int, Int, Int)
 
 incZoom : ZoomDir -> Zoom -> Zoom
 incZoom zd z =  case zd of
@@ -25,6 +26,7 @@ incZoom zd z =  case zd of
 type alias Tile =
   { url : String 
   , current: Bool
+  , address : TileAddress
   , position: Position }
 
 tempReg : Regex
@@ -49,7 +51,7 @@ makeUrl = replace All tempReg << replacer
 type alias TileKey = String
 
 type alias Level = 
-  { zoom : Zoom, tiles : List Tile }
+  { zoom : Zoom, tiles : Dict TileKey Tile }
 
 type alias TileLayer =
   { urlTemplate : String
@@ -75,12 +77,24 @@ moveTileLayer pos tl =
 
 updateLevel : CRS -> String -> Zoom -> Size -> Point -> Position -> Level -> Level
 updateLevel crs temp z paneSize pointOrigin pos level =
-  let newOrigin = sum (mapCoord toFloat pos) pointOrigin
+      -- Use pixel origin, ie, nw of window, rather than sw
+  let pixelOrigin = sum pointOrigin {x=0, y=toFloat -paneSize.y}
+      newOrigin = sum (mapCoord (negate << toFloat) pos) pixelOrigin
       tr = getTileRange crs z paneSize newOrigin
-      pairs = List.concat <| List.map (\x -> List.map (\y -> (x,y) ) (range tr.sw.y tr.ne.y) ) (range tr.sw.x tr.ne.x)
-      ts =  List.map (\(x,y) -> createTile temp z pointOrigin {x=x, y=y}) pairs
+      ts = makeTilesFromBounds temp paneSize z pixelOrigin tr
   in 
-    { zoom = z, tiles = List.append level.tiles ts }
+    { zoom = z, tiles = updateDictWithTiles ts level.tiles }
+
+makeTilesFromBounds : String -> Size -> Zoom -> Point -> Bounds Position ->  List Tile
+makeTilesFromBounds temp size z pointOrigin tr = 
+      let pairs = List.concat <| List.map (\x -> List.map (\y -> (x,y) ) (range tr.sw.y tr.ne.y) ) (range tr.sw.x tr.ne.x)
+      in  List.map (\(x,y) -> createTile temp size z pointOrigin {x=x, y=y}) pairs
+
+updateDictWithTiles : List Tile -> Dict TileKey Tile -> Dict TileKey Tile
+updateDictWithTiles tiles dict = 
+    let getKey {x,y} = String.join ":" <| List.map toString [x, y]
+        nd = Dict.fromList <| List.map (\t -> (getKey(t.position) ,t)) tiles
+    in Dict.union dict nd
 
 tileSize = 
   { x = 256
@@ -90,17 +104,24 @@ getTileRange : CRS -> Zoom -> Size -> Point -> Bounds Position
 getTileRange crs zoom size point = 
   let sf = mapCoord toFloat size
       bs = {sw = point, ne= sum point sf }
-  in mapBounds (mapCoord round << (\co -> quotient co tileSize) ) bs
-      
-createTile : String -> Zoom -> Point -> Position -> Tile
-createTile temp zoom pointOrigin tilepos = 
-  let np = product tileSize <| mapCoord toFloat tilepos
+  in mapBounds (mapCoord floor << (\co -> quotient co tileSize) ) bs
+
+     
+createTile : String -> Size -> Zoom -> Point -> Position -> Tile
+createTile temp size zoom pointOrigin tilepos = 
+  -- position, in pixels, compared with world origin
+  let pos = getPositionFromOrigin pointOrigin tilepos
   in 
     { url = makeUrl {x=tilepos.x, y=tilepos.y, z=zoom } temp
     , current = True
-    , position = Debug.log "POS" <| mapCoord round <| difference np <| Debug.log "PO" pointOrigin }
+    , address = (tilepos.x, tilepos.y, zoom)
+    , position = pos }
 
-
+getPositionFromOrigin : Point -> Position -> Position
+getPositionFromOrigin pointOrigin tilepos = 
+  let np = product tileSize <| mapCoord toFloat tilepos
+  in mapCoord round <| difference np pointOrigin
+ 
 
 updateTileLayer : TileLayerAction -> TileLayer -> TileLayer
 updateTileLayer tla tl = 
@@ -108,18 +129,39 @@ updateTileLayer tla tl =
     TileLayer_Move pos -> moveTileLayer pos tl
     TileLayer_Zoom zd ->  
       let nz = incZoom zd tl.currentZoom
-      in moveTileLayer {x=0,y=0} { tl | currentZoom = nz }
+          center = getCenterFromOrigin tl.crs tl.currentZoom tl.size <| Debug.log "OO" <| tl.latLngOrigin
+          newOrigin = getOriginFromCenter tl.crs nz tl.size center 
+          nt = 
+            { tl | 
+              currentZoom = nz
+            , latLngOrigin = newOrigin }
+      in moveTileLayer {x=0,y=0} nt
+
 
 createLevel : Zoom -> Level
 createLevel z =
   { zoom = z
-  , tiles = [] }
+  , tiles = Dict.empty  }
+  --, active = True }
 
 getDefault : v -> comparable -> Dict comparable v -> v
 getDefault def k d = 
   case Dict.get k d of
     Just v -> v
     Nothing -> def
+
+viewTileLevel : Level -> Html a
+viewTileLevel level = 
+  div
+    [ style
+        [ ("height", "100%")
+        , ("width", "100%")
+        , ("position", "absolute")
+        ]
+    , attribute "data-foliage-name" "tile-level-view"
+    ]
+    (List.map viewTile <| Dict.values level.tiles)
+       
 
 viewTileLayer : TileLayer -> Html a
 viewTileLayer tl = 
@@ -129,9 +171,11 @@ viewTileLayer tl =
         [ style
           [ ("height", "100%")
           , ("width", "100%")
+          , ("position", "absolute")
           ]
+          , attribute "data-foliage-name" "tile-layer-view"
         ]
-        (List.map viewTile level.tiles)
+        <| [viewTileLevel level]
 
 viewTile : Tile -> Html a
 viewTile t = 

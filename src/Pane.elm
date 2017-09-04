@@ -91,6 +91,7 @@ updateDragState da ds =
     Nothing ->  
       case da of
         DragStart xy -> Just <| { defaultDrag | start = xy }
+        -- TODO: handle double clicks!!
         _ -> Debug.crash "Oops, shouldn't happen"
 
 updateDrag : DragAction -> Drag -> Drag
@@ -188,7 +189,8 @@ updatePane action pane =
             cmd = Cmd.batch [dragCmd, vcmd]
         in (newPane, cmd)
       Pane_Zoom zd ->  
--- TODO: update vectory layer
+-- TODO: update vector layer
+-- TODO: might need to reset pane.position sine we're resetting latLngOrigin ??
         let np =  { pane | tileLayers = List.map (updateTileLayer (TileLayer_Zoom zd)) pane.tileLayers  } 
         in (np, Cmd.none)
       Pane_Vector vla -> 
@@ -202,6 +204,7 @@ viewPane : MapPane -> Html PaneAction
 viewPane  pane =
       div
         [ onMouseDown (Pane_Drag << DragStart)
+        , attribute "data-foliage-name" "view-pane"
         , style
             [ 
               ("height", "100%")
@@ -209,8 +212,8 @@ viewPane  pane =
             , ("position", "absolute")
             ]
         ] 
-        [ viewContainer pane.position pane.tileLayers
-        , Html.map Pane_Vector <| vectorLayersView pane.vectorLayers
+        [ viewContainer pane.position pane.tileLayers pane.vectorLayers
+        --, Html.map Pane_Vector <| vectorLayersView pane.vectorLayers
         , Html.map Pane_Zoom <| zoomContainer {x=10, y=10} 
         ]
 -- idea is: Pane stays still; child Container moves
@@ -262,8 +265,8 @@ icon =
   let r = rect [ SA.width "40", SA.height "40"] []
   in svg [] [r]
 
-viewContainer : Position -> List TileLayer -> Html a
-viewContainer pos ls =
+viewContainer : Position -> List TileLayer -> List VectorLayer -> Html PaneAction
+viewContainer pos ls vls =
       div 
         [ style
             [ ( "left", px pos.x)
@@ -272,8 +275,10 @@ viewContainer pos ls =
             , ("width", "100%")
             , ("position", "absolute")
           ]
+
+        , attribute "data-foliage-name" "view-container"
         ]
-        (List.map viewTileLayer ls)
+        ((Html.map Pane_Vector <| vectorLayersView vls)::(List.map viewTileLayer ls) )
 
 emptyPos = {x = 0, y = 0}
 emptyVel = {dx = 0.0, dy = 0.0 }
@@ -291,3 +296,4 @@ defaultDrag =
 addTileLayer : MapPane -> TileLayer -> MapPane
 addTileLayer mp tl = { mp | tileLayers = tl :: mp.tileLayers }
   
+

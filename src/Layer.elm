@@ -1,10 +1,5 @@
 module Layer exposing (..)
-{-
-Does TileLayer, VectorLayer contain Layer
-Or Vice versa?
 
-
--}
 import Geo exposing (..)
 
 type ZoomDir
@@ -17,27 +12,6 @@ type alias Layer a
     --, latLngOrigin : LatLng
     , crs : CRS
     , currentZoom : Zoom }
-
---updateLayerOrigin : Position -> Layer -> Layer
---updateLayerOrigin pos layer =
-  
-      
-
-
-
--- transform the point such that, instead of represention a point on earth, it represents a "point" on a grid (2^zoom) x (2^zoom) in size
-{-
-projectedToPixel : CRS -> Zoom -> Point -> Point 
-projectedToPixel crs zoom point =
-  let scalar = crs.scale zoom
-  in transform crs.transformation scalar point
-
-pixelToProjected : CRS -> Zoom -> Point -> Point
-pixelToProjected crs zoom coord = 
-  let scalar = crs.scale zoom
-  in  untransform crs.transformation scalar coord
--}
-
 
 latLngToPoint : CRS -> Zoom -> LatLng -> Point
 latLngToPoint crs zoom ll = 
@@ -64,5 +38,17 @@ getBounds crs zoom size ll =
   let ne = getPannedLatLng crs zoom size ll
   in {sw=ll, ne= ne}
 
+getCenterFromOrigin : CRS -> Zoom -> Size -> LatLng -> LatLng
+getCenterFromOrigin crs zoom size ll = 
+    let point = latLngToPoint crs zoom ll
+        centerPoint = sum point <| mapCoord (\i -> (toFloat i /2)) size
+    in pointToLatLng crs zoom centerPoint
+
+getOriginFromCenter : CRS -> Zoom -> Size -> LatLng -> LatLng
+getOriginFromCenter crs zoom size ll = 
+    let half = mapCoord ((*) 0.5 << toFloat) size
+        or = latLngToPoint crs zoom ll
+        swp = {y=or.y + half.y , x=or.x - half.x }
+    in pointToLatLng crs zoom swp
 
 

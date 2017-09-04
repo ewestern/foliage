@@ -10,7 +10,7 @@ import Geo exposing (..)
 import Util exposing (..)
 import TileLayer exposing (TileLayer, updateTileLayer, TileLayerAction(..))
 import VectorLayer exposing (VectorLayer, VectorOptions)
-import Layer exposing (pointToLatLng, latLngToPoint)
+import Layer exposing (pointToLatLng, latLngToPoint, getBounds, getOriginFromCenter)
 
 
 type alias Map
@@ -39,30 +39,15 @@ getInitialBounds : Size -> CRS -> Zoom -> InitialCoords -> Bounds LatLng
 getInitialBounds size crs zoom ic = 
     case ic of
         Initial_Center ll -> 
-          let half = mapCoord ((*) 0.5 << toFloat) size
-              or = latLngToPoint crs zoom ll
-              swp = difference or half
-              nep = sum or half
-              swl = pointToLatLng crs zoom swp
-              nel = pointToLatLng crs zoom nep
-          in {sw=swl, ne=nel }
+                let or = getOriginFromCenter crs zoom size ll
+                in getBounds crs zoom size or
+
         Initial_Bounds bounds -> bounds
 
---getInitialOrigin : Size -> CRS -> Zoom -> InitialCoords -> LatLng
---getInitialOrigin sz crs zoom ic = 
-        --let {sw,ne} = getInitialBounds size crs
 
---case ic of 
-    --Initial_Center ll -> 
-      --let p = crs.projection.project ll
-          --swp = difference p <| mapCoord ((*) 0.5 << toFloat) sz
-      --in crs.projection.unproject swp 
-    --Initial_Bounds bs -> bs.sw
-
-
-makeMap : VectorOptions -> MapOptions -> Map
-makeMap vo mo = 
-  let pane = makePane vo mo
+makeMap : MapOptions -> Map
+makeMap mo = 
+  let pane = makePane mo
   in { size = mo.size, pane = pane }
 
 mkVectorLayer vectorOptions crs size ll zoom = 
@@ -75,8 +60,8 @@ mkVectorLayer vectorOptions crs size ll zoom =
   , currentZoom = zoom
   }
 
-makePane : VectorOptions -> MapOptions -> MapPane
-makePane vo mo = 
+makePane : MapOptions -> MapPane
+makePane mo = 
     let {sw,ne} = getInitialBounds mo.size mo.crs mo.initialZoom mo.initialCoords
         initialLayer = 
           Maybe.map (\url -> 
@@ -89,7 +74,7 @@ makePane vo mo =
       , position = emptyPos -- the origin of the pane, relative to the origin of the map, in pixels
       , latLngCenter = sw -- ??????????
       , tileLayers = List.map (updateTileLayer (TileLayer_Move {x=0, y=0})) <| catMaybe [initialLayer] 
-      , vectorLayers = [mkVectorLayer vo mo.crs mo.size sw mo.initialZoom] }
+      , vectorLayers = [mkVectorLayer mo.vectorOptions mo.crs mo.size sw mo.initialZoom] }
 
 mapView : Map -> Html.Html Action
 mapView  map =  

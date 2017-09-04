@@ -2,9 +2,9 @@ module VectorLayer exposing (..)
 
 
 import Html exposing (..)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, attribute)
 import Svg exposing (svg, g, path)
-import Svg.Attributes exposing ( stroke, d, width, height, viewBox, fill)
+import Svg.Attributes exposing ( stroke, d, width, height, viewBox, fill, x, y)
 import Array
 import Array exposing (Array)
 import Maybe exposing (Maybe, withDefault)
@@ -25,6 +25,7 @@ type alias GetGeometry = Bounds LatLng -> Cmd (List Geometry)
 --type VectorLayerGeometry
   --= VectorLayer_Path Path
   --| VectorLayer_Polygon Polygon
+
 
 type alias VectorOptions
   =  {  stroke : String
@@ -57,11 +58,9 @@ updateVectorLayer : VectorLayerAction -> VectorLayer -> (VectorLayer, Cmd Vector
 updateVectorLayer vla vl = 
   case vla of
     VectorLayer_Geometry geos -> 
-        ( { vl | geometry = List.append vl.geometry geos }, Cmd.none )
+-- For now, just abandon previous retrieved geometries. Probably want to do some kind of caching
+        ( { vl | geometry = geos }, Cmd.none )
     VectorLayer_Move pos -> 
-        --( { vl | latLngOrigin = }, Cmd.none)
------ TODO: no! Only do this on dragend
-    --VectorLayer_MoveEnd pos -> 
       let newOrigin = getPannedLatLng vl.crs vl.currentZoom pos vl.latLngOrigin
           bounds = getBounds vl.crs vl.currentZoom vl.size newOrigin
       in 
@@ -70,23 +69,46 @@ updateVectorLayer vla vl =
 
 --- VIEWS
 
-  --in 
-    --svg
-      --[width "500", height "500", viewBox "0 0 500 500"]
-      --[node]
- 
+envelopeToBounds : Envelope -> Bounds LatLng
+envelopeToBounds {min,max} = {sw={lat=min.y, lng=min.x},ne={lat=max.y, lng=max.x}}
 
-        --  projectedToPixel crs zoom pnt
-    -- difference (product pos tileSize) (projectedToTileName crs zoom origin)
-    --tl.crs.projection.project tl.latLngOrigin
+getVectorLayerEnvelope : VectorLayer -> Maybe Envelope 
+getVectorLayerEnvelope vl = case vl.geometry of
+        []  -> Nothing
+        [x] -> Just <| geometryToEnvelope x
+        (x::xs) -> 
+            let f geo env = unionEnvelope env <| geometryToEnvelope geo
+            in Just <| List.foldl f (geometryToEnvelope x)  xs
+
+
+--vectorLayerSVG : VectorLayer
+getSVGAttributes : VectorLayer -> (List (Svg.Attribute a), (String, String))
+getSVGAttributes vl = 
+    let bounds = Debug.log "BDS" <| Maybe.map envelopeToBounds <| getVectorLayerEnvelope vl
+    in
+      case bounds of
+        Just bs -> 
+          let pBounds = Debug.log "PBDS" <| mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
+              or = Debug.log "OR" <| latLngToPoint vl.crs vl.currentZoom vl.latLngOrigin
+              t = toString << round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
+              l = toString << round <| or.x - pBounds.sw.x
+              w = toString << round <| pBounds.ne.x - pBounds.sw.x
+              h = toString << round <| pBounds.sw.y - pBounds.ne.y -- lat is inverted
+              --translate = 
+          in ([width "100%", height "100%"], (l, t))
+          -- in ([width w, height h], (l, t))
+        Nothing -> ([width "100%", height "100%"], ("0", "0"))
+           
+
 vectorLayerView : VectorLayer -> Html VectorLayerAction
 vectorLayerView vl =
-    let snode =
-        svg
-          [width "500", height "500", viewBox "0 0 500 500"]
-          (List.map (drawGeometry vl.options vl.crs vl.currentZoom vl.size vl.latLngOrigin) vl.geometry)
+    let (svgAttrs, (tx,ty)) = Debug.log "ATT" <| getSVGAttributes vl
+        snode =
+-- want bounds in pixels relative to 
+          svg
+            svgAttrs -- , viewBox "0 0 500 500"]
+            (List.map (drawGeometry vl.options vl.crs vl.currentZoom vl.size vl.latLngOrigin) vl.geometry)
 
-      
     in
       div
           [ style
@@ -94,7 +116,9 @@ vectorLayerView vl =
             , ("width", "100%")
             , ("position", "absolute")
             , ("z-index", "100")
+            --, ("transform", "translate3d(" ++ tx ++ "px," ++ ty ++ "px,0)") 
             ]
+          , attribute "data-foliage-name" "vector-layer-view"
           ]
           [snode]
 
@@ -104,7 +128,9 @@ vectorLayersView vls =
         [ style
           [ ("height", "100%")
           , ("width", "100%")
+          , ("position", "absolute")
           ]
+          , attribute "data-foliage-name" "vector-layers-view"
         ]
         (List.map vectorLayerView vls)
 
@@ -120,12 +146,16 @@ drawGeometry vo crs zoom size ll geo =
       
 
 
+--let origin = latLngToPoint crs zoom or
+--coordPos = latLngToPoint crs zoom {lng=coord.x, lat=coord.y}
+--in getPositionFromOrigin pointOrigin coordPos
 getCoordinatePosition : CRS -> Zoom -> Size -> LatLng -> Coordinate -> Position
 getCoordinatePosition crs zoom size or coord =
-    let
-        origin = sum {x=0, y=toFloat -size.y} <| latLngToPoint crs zoom or -- sw
-        c = latLngToPoint crs zoom {lng=coord.x, lat=coord.y}
-    in mapCoord round <| difference c origin
+  let
+  -- svg (0,0)
+    origin = sum {x=0, y=toFloat -size.y} <| latLngToPoint crs zoom or -- sw
+    c = latLngToPoint crs zoom {lng=coord.x, lat=coord.y}
+  in mapCoord round <| difference c origin
 
 getGeometryPath : CRS -> Zoom -> Size -> LatLng -> Geometry -> Array (Array Position)
 getGeometryPath crs zoom size origin geom = 
@@ -224,3 +254,5 @@ drawRing lr  =
         Just <| Array.foldl mkPoint "" lrs
     else
       Nothing
+
+
