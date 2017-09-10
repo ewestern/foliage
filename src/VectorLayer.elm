@@ -22,10 +22,6 @@ type alias Bounds a =
 
 type alias GetGeometry = Bounds LatLng -> Cmd (List Geometry)
 
---type VectorLayerGeometry
-  --= VectorLayer_Path Path
-  --| VectorLayer_Polygon Polygon
-
 
 type alias VectorOptions
   =  {  stroke : String
@@ -48,12 +44,6 @@ type VectorLayerAction
    | VectorLayer_Zoom ZoomDir
    | VectorLayer_Geometry (List Geometry)
 
-absPixelDiff : Position -> Position -> Float
-absPixelDiff x y = 
-  let a = abs (x.x - y.x) 
-      b = abs (x.y - y.y)
-  in sqrt  <| toFloat (a ^ 2 + b ^ 2)
-
 updateVectorLayer : VectorLayerAction -> VectorLayer -> (VectorLayer, Cmd VectorLayerAction)
 updateVectorLayer vla vl = 
   case vla of
@@ -61,7 +51,8 @@ updateVectorLayer vla vl =
 -- For now, just abandon previous retrieved geometries. Probably want to do some kind of caching
         ( { vl | geometry = geos }, Cmd.none )
     VectorLayer_Move pos -> 
-      let newOrigin = getPannedLatLng vl.crs vl.currentZoom pos vl.latLngOrigin
+      let disp = mapCoord negate pos
+          newOrigin = getPannedLatLng vl.crs vl.currentZoom disp vl.latLngOrigin
           bounds = getBounds vl.crs vl.currentZoom vl.size newOrigin
       in 
           ( vl, Cmd.map VectorLayer_Geometry <| vl.options.getGeometry bounds )
@@ -82,31 +73,30 @@ getVectorLayerEnvelope vl = case vl.geometry of
 
 
 --vectorLayerSVG : VectorLayer
-getSVGAttributes : VectorLayer -> (List (Svg.Attribute a), (String, String))
+getSVGAttributes : VectorLayer -> List (Svg.Attribute a)
 getSVGAttributes vl = 
-    let bounds = Debug.log "BDS" <| Maybe.map envelopeToBounds <| getVectorLayerEnvelope vl
+    let vectorBounds = Maybe.map envelopeToBounds <| getVectorLayerEnvelope vl
     in
-      case bounds of
+      case vectorBounds of
         Just bs -> 
-          let pBounds = Debug.log "PBDS" <| mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
-              or = Debug.log "OR" <| latLngToPoint vl.crs vl.currentZoom vl.latLngOrigin
-              t = toString << round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
-              l = toString << round <| or.x - pBounds.sw.x
-              w = toString << round <| pBounds.ne.x - pBounds.sw.x
-              h = toString << round <| pBounds.sw.y - pBounds.ne.y -- lat is inverted
-              --translate = 
-          in ([width "100%", height "100%"], (l, t))
-          -- in ([width w, height h], (l, t))
-        Nothing -> ([width "100%", height "100%"], ("0", "0"))
+          let pBounds = mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
+              or = latLngToPoint vl.crs vl.currentZoom vl.latLngOrigin
+              t = round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
+              l = round <| or.x - pBounds.sw.x
+              w = vl.size.x - l
+              h = vl.size.y - t
+              box = String.join " " <| List.map toString [l, t, w, h]
+              trans = String.join "," <| List.map (\i -> i ++ "px") <| List.map toString [l, t, 0]
+              translate = ("transform", "translate3d(" ++ trans ++ ")") 
+          in [width <| toString w, height <| toString h, viewBox box, style [translate]]
+        Nothing -> [width "100%", height "100%"]
            
 
 vectorLayerView : VectorLayer -> Html VectorLayerAction
 vectorLayerView vl =
-    let (svgAttrs, (tx,ty)) = Debug.log "ATT" <| getSVGAttributes vl
-        snode =
--- want bounds in pixels relative to 
+    let snode =
           svg
-            svgAttrs -- , viewBox "0 0 500 500"]
+            (getSVGAttributes vl )
             (List.map (drawGeometry vl.options vl.crs vl.currentZoom vl.size vl.latLngOrigin) vl.geometry)
 
     in
@@ -116,7 +106,6 @@ vectorLayerView vl =
             , ("width", "100%")
             , ("position", "absolute")
             , ("z-index", "100")
-            --, ("transform", "translate3d(" ++ tx ++ "px," ++ ty ++ "px,0)") 
             ]
           , attribute "data-foliage-name" "vector-layer-view"
           ]
@@ -146,13 +135,9 @@ drawGeometry vo crs zoom size ll geo =
       
 
 
---let origin = latLngToPoint crs zoom or
---coordPos = latLngToPoint crs zoom {lng=coord.x, lat=coord.y}
---in getPositionFromOrigin pointOrigin coordPos
 getCoordinatePosition : CRS -> Zoom -> Size -> LatLng -> Coordinate -> Position
 getCoordinatePosition crs zoom size or coord =
   let
-  -- svg (0,0)
     origin = sum {x=0, y=toFloat -size.y} <| latLngToPoint crs zoom or -- sw
     c = latLngToPoint crs zoom {lng=coord.x, lat=coord.y}
   in mapCoord round <| difference c origin
@@ -204,26 +189,6 @@ zip a b =
       [] -> []
       y::ys  -> (x,y)::zip xs ys
 
-zipA : Array a -> Array b -> Array (a, b)
-zipA a b =
-  let la = Debug.log "FOO" <| Array.length a
-      lb = Debug.log "BAR" <| Array.length b 
-  in
-      case la of
-        0 -> Array.empty
-        _  ->  case lb of
-          0 -> Array.empty
-          _  -> 
-            let ta = Debug.log "BAZ" <| Array.slice 1 (la + 1) <| Debug.log "A" a
-                tb = Debug.log "BOP" <| Array.slice 1 (lb + 1) <| Debug.log "B" b
-                ha = fromJust <| Array.get 0 a
-                hb = fromJust <| Array.get 0 b
-            in Array.append (Array.fromList [(ha, hb)]) <| zipA ta tb
-
---range : Int -> Int -> Array Int
---range start end = Array.initialize (end - start) (\index -> start + index)
-
-
 deDupe : Array a -> Array a
 deDupe arr = 
   let 
@@ -254,5 +219,3 @@ drawRing lr  =
         Just <| Array.foldl mkPoint "" lrs
     else
       Nothing
-
-
