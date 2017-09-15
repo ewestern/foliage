@@ -7,8 +7,9 @@
     "dependencies": {
         "elm-lang/core": "5.0.0 <= v < 6.0.0",
         "elm-lang/html": "2.0.0 <= v < 3.0.0",
-        "elm-lang/mouse": "2.0.0 <= v < 2.0.0",
-        "elm-lang/svg": "2.0.0 <= v < 2.0.0",
+        "elm-lang/mouse": "1.0.0 <= v < 2.0.0",
+        "elm-lang/http": "1.0.0 <= v < 2.0.0",
+        "elm-lang/svg": "2.0.0 <= v < 3.0.0",
         "elm-lang/animation-frame": "1.0.0 <= v < 2.0.0",
         "elm-community/easing-functions": "1.0.0 <= v < 2.0.0",
         "mdgriffith/elm-style-animation": "3.0.0 <= v < 4.0.0"
