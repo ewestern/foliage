@@ -9,18 +9,17 @@ import Array
 import Array exposing (Array)
 import Maybe exposing (Maybe, withDefault)
 
-
 import Geometry exposing (..)
-import Types exposing (..)
 import Layer exposing (..)
 import Geo exposing (..)
+import GeoJson as GJ
 
 type alias Bounds a =
   { sw : a 
   , ne : a }
 
 
-type alias GetGeometry = Bounds LatLng -> Cmd (List Geometry)
+type alias GetGeometry = Bounds LatLng -> Cmd (List GJ.Geometry)
 
 
 type alias VectorOptions
@@ -33,7 +32,7 @@ type alias VectorOptions
 
 type alias VectorLayer -- 
   = { options: VectorOptions
-    , geometry :  List Geometry
+    , geometry :  List GJ.Geometry
     , size : Size -- needed (in theory) to calculate when a layer comes  in view
     , latLngOrigin : LatLng
     , crs : CRS
@@ -42,7 +41,7 @@ type alias VectorLayer --
 type VectorLayerAction
    = VectorLayer_Move Position
    | VectorLayer_Zoom ZoomDir
-   | VectorLayer_Geometry (List Geometry)
+   | VectorLayer_Geometry (List GJ.Geometry)
 
 updateVectorLayer : VectorLayerAction -> VectorLayer -> (VectorLayer, Cmd VectorLayerAction)
 updateVectorLayer vla vl = 
@@ -125,7 +124,7 @@ vectorLayersView vls =
 
 
 
-drawGeometry : VectorOptions -> CRS -> Zoom -> Size -> LatLng -> Geometry -> Svg.Svg msg
+drawGeometry : VectorOptions -> CRS -> Zoom -> Size -> LatLng -> GJ.Geometry -> Svg.Svg msg
 drawGeometry vo crs zoom size ll geo =
   case drawPath (getGeometryPath crs zoom size ll geo) False of
     Just pth -> 
@@ -136,22 +135,21 @@ drawGeometry vo crs zoom size ll geo =
 
 
 getCoordinatePosition : CRS -> Zoom -> Size -> LatLng -> Coordinate -> Position
-getCoordinatePosition crs zoom size or coord =
+getCoordinatePosition crs zoom size or (x,y,_) =
   let
     origin = sum {x=0, y=toFloat -size.y} <| latLngToPoint crs zoom or -- sw
-    c = latLngToPoint crs zoom {lng=coord.x, lat=coord.y}
+    c = latLngToPoint crs zoom {lng=x, lat=y}
   in mapCoord round <| difference c origin
 
-getGeometryPath : CRS -> Zoom -> Size -> LatLng -> Geometry -> Array (Array Position)
+getGeometryPath : CRS -> Zoom -> Size -> LatLng -> GJ.Geometry -> List (List Position)
 getGeometryPath crs zoom size origin geom = 
   let f = getCoordinatePosition crs zoom size origin
-      g = Array.map
   in
-    Array.map deDupe <|
+    List.map deDupe <|
       case geom of
-          Geometry_Point (Point c) -> Array.fromList [ Array.fromList [ f c ] ]
-          Geometry_LineString (LineString arr) -> Array.fromList [g f arr]
-          Geometry_Polygon (Polygon arr) -> g (\arr2 -> g f arr2 ) arr
+          GJ.Point c -> [ [ f c ] ]
+          GJ.LineString ls -> [List.map f ls]
+          GJ.Polygon lss -> List.map (\arr2 -> List.map f arr2 ) lss
           _ -> Debug.crash "ASD"
 
 
@@ -188,6 +186,13 @@ zip a b =
     (x::xs)  ->  case b of
       [] -> []
       y::ys  -> (x,y)::zip xs ys
+
+deDupe : List a -> List a
+deDupe ls = 
+  let 
+  case ls of
+    (x::xs) -> 
+    []  -> 
 
 deDupe : Array a -> Array a
 deDupe arr = 

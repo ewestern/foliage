@@ -8,12 +8,10 @@ import String
 import Pane exposing (..)
 import Result
 import Geo exposing (..)
-import Types exposing (..)
 import TileLayer exposing (..)
 import Layer exposing (..)
 import VectorLayer exposing (..)
 import Json.Decode exposing (decodeString)
-import GeoJSON
 import Map exposing (..)
 import Util exposing (zip, range)
 import Dict

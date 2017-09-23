@@ -1,8 +1,7 @@
 module Util exposing (..)
 import Dict
-import GeoJSON
+import GeoJson
 import Dict
-import Types exposing (..)
 import Json.Decode as D
 import String
 import Result
@@ -40,7 +39,7 @@ zip a b = case a of
 type alias Segment = 
   { trailType : String
   , sacScale : Maybe String
-  , geometry : Geometry
+  , geometry : GeoJson.GeoJson
   }
 
 type alias Ref = Int
@@ -57,7 +56,7 @@ decodeSegment =
     D.map3 Segment 
       (D.field "trailType" D.string)
       (D.field "sacScale" <| D.nullable D.string)
-      (D.field "geometry" GeoJSON.decodeGeometry )
+      (D.field "geometry" GeoJson.decoder )
 
 segmentPairDecoder : D.Decoder (Ref, Segment)
 segmentPairDecoder = 

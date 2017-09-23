@@ -1,16 +1,24 @@
 module Geometry exposing (..)
-import Types exposing(..)
-import Array exposing (get, foldl)
+---import Array exposing (get, foldl)
+import List exposing (foldl)
+import GeoJson as GJ
+import Geo exposing (Point)
 
+type alias Coordinate = GJ.Position -- Let's not get confused with other Positions
 
+first : (a, b, c) -> a
+first (a,b,c) = a
 
-type alias Envelope = { min : Coordinate, max: Coordinate }
+second : (a, b, c) -> b
+second (a, b, c) = b
+
+type alias Envelope = { min : Point, max: Point }
 
 emptyEnvelope : Envelope
 emptyEnvelope = { min = {x=10e10,y=10e10}, max ={x=-10e10,y=-10e10} }
 
 coordinateEnvelope : Coordinate -> Envelope
-coordinateEnvelope p = { min=p, max = p}
+coordinateEnvelope (x,y,_) = { min={x=x, y=y}, max = {x=x,y=y}}
 
 
 extendEnvelopeX x env = 
@@ -31,7 +39,7 @@ extendEnvelopeY y env =
 
 
 extendEnvelope : Coordinate -> Envelope -> Envelope
-extendEnvelope {x,y} env = 
+extendEnvelope (x,y,_) env = 
   let envY = extendEnvelopeY y env
       envX  = extendEnvelopeX x env
   in {  min =
@@ -48,16 +56,16 @@ unionEnvelope env1 env2 =
             x = { x = max env1.max.x env2.max.x, y = max env1.max.y env2.max.y }
         in { min = n, max = x }
 
-geometryToEnvelope : Geometry -> Envelope
+geometryToEnvelope : GJ.Geometry -> Envelope
 geometryToEnvelope geo =  case geo of
-        Geometry_LineString ls -> lineStringToEnvelope ls
+        GJ.LineString ls -> lineStringToEnvelope ls
         _ -> Debug.crash "geometryToEnvelope not yet implemented"
 
-lineStringToEnvelope : LineString -> Envelope
-lineStringToEnvelope (LineString ls) = 
-  case get 0 ls of
-    Just c -> 
+lineStringToEnvelope : List Coordinate -> Envelope
+lineStringToEnvelope ls = 
+  case ls of
+    (c::cs) -> 
       let envInit = coordinateEnvelope c
       in foldl extendEnvelope envInit ls
-    Nothing -> Debug.crash "Cannot create envelope from empty linestring"
+    []     -> Debug.crash "Cannot create envelope from empty linestring"
 
