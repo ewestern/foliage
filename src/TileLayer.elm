@@ -129,7 +129,7 @@ updateTileLayer tla tl =
     TileLayer_Move pos -> moveTileLayer pos tl
     TileLayer_Zoom zd ->  
       let nz = incZoom zd tl.currentZoom
-          center = getCenterFromOrigin tl.crs tl.currentZoom tl.size <| Debug.log "OO" <| tl.latLngOrigin
+          center = getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
           newOrigin = getOriginFromCenter tl.crs nz tl.size center 
           nt = 
             { tl | 

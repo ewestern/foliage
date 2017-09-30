@@ -153,7 +153,7 @@ getGeometryPath crs zoom size origin geom =
           _ -> Debug.crash "ASD"
 
 
-drawPath : Array (Array Position) -> Bool -> Maybe String
+drawPath : List (List Position) -> Bool -> Maybe String
 drawPath ls closed = 
   let 
       mkRing lr s = 
@@ -162,10 +162,10 @@ drawPath ls closed =
           Nothing -> s
 
   in 
-    case Array.length ls of
-      0 -> Nothing
+    case ls of
+      [] -> Nothing
       _ -> 
-        let r = Array.foldl mkRing "" ls
+        let r = List.foldl mkRing "" ls
         in
           if r == ""
             then Nothing
@@ -187,13 +187,24 @@ zip a b =
       [] -> []
       y::ys  -> (x,y)::zip xs ys
 
+deDupeF : a -> (a, List a) -> (a, List a)
+deDupeF item (last,ls) = 
+  if item == last
+    then (last, ls)
+    else (item, List.append ls [item])
+  
+
+
 deDupe : List a -> List a
 deDupe ls = 
-  let 
   case ls of
     (x::xs) -> 
-    []  -> 
+      let init = (x, [x])
+          (final, ls) = List.foldl deDupeF init xs
+      in ls
+    []  -> []
 
+{-
 deDupe : Array a -> Array a
 deDupe arr = 
   let 
@@ -204,12 +215,13 @@ deDupe arr =
     head = fromJust <| Array.get 0 arr
     (_, newArra) = Array.foldl maybePush (head, Array.fromList [head]) arr
   in newArra
+-}
       
         
 
-drawRing : Array Position -> Maybe String
+drawRing : List Position -> Maybe String
 drawRing lr  =
-  if Array.length lr >= 2
+  if List.length lr >= 2
     then
       let 
         mkPoint (i, p) s = 
@@ -218,9 +230,9 @@ drawRing lr  =
           in 
             s ++ pref ++ (toString p.x) ++ " " ++ (toString p.y)
 
-        lrs = Array.fromList <| zip (List.range 0 (Array.length lr)) <| Array.toList lr
+        lrs = zip (List.range 0 (List.length lr)) lr
 
       in 
-        Just <| Array.foldl mkPoint "" lrs
+        Just <| List.foldl mkPoint "" lrs
     else
       Nothing

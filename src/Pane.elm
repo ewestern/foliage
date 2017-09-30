@@ -134,7 +134,7 @@ coastSubscription state =
 
 easer : Float -> Float
 easer exp = 
-  1 / (1 + e ^ (10 * (exp - 0.5)))
+  1 / (1 + e ^ (10 * (exp - 0.75)))
 
 epsilon = 0.001
 

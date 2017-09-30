@@ -7,6 +7,10 @@ import Array
 import String
 import Pane exposing (..)
 import Result
+
+
+
+import GeoJson as GJ
 import Geo exposing (..)
 import TileLayer exposing (..)
 import Layer exposing (..)
@@ -36,23 +40,26 @@ tileLayer =
   , crs=espg3857
   , currentZoom = 10 }
 
-whitneyBox = Geometry_LineString (LineString (Array.fromList [ 
+convert : Point -> GJ.Position
+convert {x,y} = (x,y,0)
+
+whitneyBox = GJ.LineString  <| List.map convert [ 
           { y = 36.577, x = -118.302 }
         , { y = 36.579, x = -118.302 }
         , { y = 36.579, x = -118.300 }
         , { y = 36.577, x = -118.300 }
         , { y = 36.577, x = -118.302 }
-        ]))
+        ]
 
-testGeom2 = Geometry_LineString (LineString (Array.fromList [ 
+testGeom2 = GJ.LineString  <| List.map convert [ 
           { y = 36.67584656386455, x = -118.37332275390625 }
         , { y = 37.22458044629443, x = -118.37332275390625 }
         , { y = 37.22458044629443, x = -117.68667724609377 }
         , { y = 36.67584656386455, x = -117.68667724609377 }
         , { y = 36.67584656386455, x = -118.37332275390625 }
-        ]))
+        ]
 
-testGeom = Geometry_LineString (LineString (Array.fromList [{ x = -118.02928544052078, y = 36.41785245831469 },{ x = -118.02920245967934, y = 36.41786369006496 },{ x = -118.02898830205326, y = 36.41789269144992 },{ x = -118.0288879706723, y = 36.41790627013306 },{ x = -118.02878244251131, y = 36.41792043554942 },{ x = -118.02860524907824, y = 36.417944491611536 }]))
+testGeom = GJ.LineString  <| List.map convert [{ x = -118.02928544052078, y = 36.41785245831469 },{ x = -118.02920245967934, y = 36.41786369006496 },{ x = -118.02898830205326, y = 36.41789269144992 },{ x = -118.0288879706723, y = 36.41790627013306 },{ x = -118.02878244251131, y = 36.41792043554942 },{ x = -118.02860524907824, y = 36.417944491611536 }]
 
 --testGeomSet = Set.fromList [testGeom]
 
@@ -66,20 +73,7 @@ testSegment =
 all : Test
 all =
     describe "Sample Test Suite"
-        [ describe "Json tests"
-          [ 
-            test "decode" <|
-              \() -> 
-                  let geom = decodeString GeoJSON.decodeGeometry jsonGeo
-                      geomResult = Result.Ok testGeom
-                      segment = decodeString Util.segmentDictDecoder json
-                      segmentResult = Result.Ok <| Dict.fromList [(214317 , testSegment)]
-                  in Expect.all [
-                        \() -> Expect.equal geom geomResult
-                      , \() -> Expect.equal segment segmentResult
-                    ] ()
-            ]
-        , describe "Geo tests"
+        [ describe "Geo tests"
             [ 
               test "espg 3857" <|
                 \() ->
@@ -111,7 +105,7 @@ all =
             , test "getPannedLatLng" <| 
               \() ->
                   let ll = getPannedLatLng tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin
-                      pos = getCoordinatePosition tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin {y=36.01, x=-117.01}
+                      pos = getCoordinatePosition tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin (-117.01, 36.01, 0)
                   in Expect.all [
                     \() -> Expect.equal ll { lat = 36.55354730363422, lng = -117.3133544921875 }
                   , \() -> Expect.equal pos { x = 721, y = 491 } 
