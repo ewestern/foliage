@@ -41,14 +41,15 @@ getBounds crs zoom size ll =
 getCenterFromOrigin : CRS -> Zoom -> Size -> LatLng -> LatLng
 getCenterFromOrigin crs zoom size ll = 
     let point = latLngToPoint crs zoom ll
-        centerPoint = sum point <| mapCoord (\i -> (toFloat i /2)) size
+        half = mapCoord (\i -> (toFloat i /2)) size
+        centerPoint =  { y = point.y - half.y, x = point.x + half.x }
     in pointToLatLng crs zoom centerPoint
 
 getOriginFromCenter : CRS -> Zoom -> Size -> LatLng -> LatLng
 getOriginFromCenter crs zoom size ll = 
     let half = mapCoord ((*) 0.5 << toFloat) size
         or = latLngToPoint crs zoom ll
-        swp = {y=or.y + half.y , x=or.x - half.x }
+        swp = { y=or.y + half.y , x=or.x - half.x }
     in pointToLatLng crs zoom swp
 
 

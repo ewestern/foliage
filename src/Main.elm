@@ -31,19 +31,32 @@ whitneyBox = GJ.LineString  <| List.map convert [
         , { y = 36.577, x = -118.302 }
         ]
 
+testGeom2 = GJ.LineString  <| List.map convert [ 
+          { y = 36.67584656386455, x = -118.37332275390625 }
+        , { y = 37.22458044629443, x = -118.37332275390625 }
+        , { y = 37.22458044629443, x = -117.68667724609377 }
+        , { y = 36.67584656386455, x = -117.68667724609377 }
+        , { y = 36.67584656386455, x = -118.37332275390625 }
+        ]
 
+
+geomFromObject : GJ.GeoJsonObject -> GJ.Geometry
+geomFromObject go = 
+  case go of
+    GJ.Geometry geo -> geo
+    _             -> Debug.crash "TODO"
 
 {-
-getGeometryZ : Bounds LatLng -> Cmd (List GJ.Geometry)
-getGeometryZ bounds = 
-  let getGeom = D.map (Dict.values >> (List.map .geometry))
+getGeometry : Bounds LatLng -> Cmd (List GJ.Geometry)
+getGeometry bounds = 
+  let getGeom = D.map (Dict.values >> (List.map (.geometry >> Tuple.first >> geomFromObject )))
   in Http.send (Result.withDefault []) <| Http.get ("http://localhost:8081/segment/bounds/" ++ getPoint bounds.sw ++ "/" ++ getPoint bounds.ne ) <| getGeom Util.segmentDictDecoder
 -}
 
 
 getGeometry : Bounds LatLng -> Cmd (List GJ.Geometry)
 getGeometry _ = 
-        let gt = Task.succeed [whitneyBox]
+        let gt = Task.succeed [testGeom2]
         in Task.perform identity gt
 
 

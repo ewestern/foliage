@@ -8,7 +8,6 @@ import Task
 import AnimationFrame
 import Svg exposing (rect, svg)
 import Svg.Attributes  as SA
---exposing (width, height)
 
 import Json.Decode as Decode
 import Html exposing (..)
@@ -37,6 +36,7 @@ type PaneAction
     = Pane_Drag DragAction
     | Pane_Zoom ZoomDir
     | Pane_Vector VectorLayerAction 
+    | Pane_Tile TileLayerAction
     | Pane_Empty
 
 
@@ -51,7 +51,7 @@ type alias MapPane =
   , tileLayers : List TileLayer
   --, geometry : GetGeometry
   , vectorLayers : List VectorLayer
-  , latLngCenter : LatLng
+  --, latLngCenter : LatLng
   , size : Size
   , position : Position
   }
@@ -134,7 +134,7 @@ coastSubscription state =
 
 easer : Float -> Float
 easer exp = 
-  1 / (1 + e ^ (10 * (exp - 0.75)))
+  1 / (1 + e ^ (10 * (exp - 0.5)))
 
 epsilon = 0.001
 
@@ -178,7 +178,6 @@ updatePane action pane =
         let dsNew = updateDragState da pane.dragstate
             posNew = Maybe.withDefault pane.position <| Maybe.map (\d -> addVelocity pane.position d.velocity) dsNew
             (vcmd, vls) = updateVectorLayerWithDragAction da posNew pane.vectorLayers
-
             newPane = 
                 { pane |
                   dragstate = dsNew
@@ -190,13 +189,17 @@ updatePane action pane =
         in (newPane, cmd)
       Pane_Zoom zd ->  
 -- TODO: update vector layer
--- TODO: might need to reset pane.position sine we're resetting latLngOrigin ??
+-- TODO: might need to reset pane.position since we're resetting latLngOrigin ??
         let np =  { pane | tileLayers = List.map (updateTileLayer (TileLayer_Zoom zd)) pane.tileLayers  } 
         in (np, Cmd.none)
       Pane_Vector vla -> 
         let newVLS = List.map(updateVectorLayer vla) pane.vectorLayers
             (vls, vcmd) = List.foldr (\(vl, c) (vs, cs) -> (vl::vs ,(Cmd.map Pane_Vector c)::cs)) ([], []) newVLS
         in ({ pane | vectorLayers = vls }, Cmd.batch vcmd) 
+      Pane_Tile tla -> 
+        let newtls = List.map (updateTileLayer tla) pane.tileLayers
+        in ( { pane | tileLayers = newtls }, Cmd.none)
+         
       Pane_Empty -> Debug.crash "FOO"
           
       
@@ -267,18 +270,21 @@ icon =
 
 viewContainer : Position -> List TileLayer -> List VectorLayer -> Html PaneAction
 viewContainer pos ls vls =
-      div 
-        [ style
-            [ ( "left", px pos.x)
-            , ( "top", px pos.y)
-            , ("height", "100%")
-            , ("width", "100%")
-            , ("position", "absolute")
-          ]
+    let tls = (List.map (Html.map Pane_Tile << viewTileLayer) ls)
+        vl = Html.map Pane_Vector <| vectorLayersView vls
+    in
+        div 
+          [ style
+              [ ( "left", px pos.x)
+              , ( "top", px pos.y)
+              , ("height", "100%")
+              , ("width", "100%")
+              , ("position", "absolute")
+            ]
 
-        , attribute "data-foliage-name" "view-container"
-        ]
-        ((Html.map Pane_Vector <| vectorLayersView vls)::(List.map viewTileLayer ls) )
+          , attribute "data-foliage-name" "view-container"
+          ]
+          (vl::tls)
 
 emptyPos = {x = 0, y = 0}
 emptyVel = {dx = 0.0, dy = 0.0 }

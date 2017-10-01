@@ -86,7 +86,12 @@ all =
                       \() -> Expect.equal p  { x = -13135699.91360628, y = 4300621.372044271 }
                     , \() -> Expect.equal (mapCoord floor tp) { x = 176, y = 402 }
                   ] ()
-                  
+             , test "get Origin" <| 
+                \() -> 
+                    let center = getCenterFromOrigin tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin
+                        origin  = getOriginFromCenter tileLayer.crs tileLayer.currentZoom tileLayer.size center
+                    in Expect.equal origin tileLayer.latLngOrigin
+      
              , test "moveTileLayer" <| 
                 \() -> 
                     let newtl = moveTileLayer {x=15,y=16} tileLayer
@@ -130,6 +135,17 @@ all =
 
 
             ]
+{-
+        , describe "test zoom" 
+            [
+              test "foo" <| 
+                \() ->  
+                  let init = updateTileLayer ( TileLayer_Move {x=0,y=0}) tileLayer
+                      tl =  updateTileLayer (TileLayer_Zoom In)  init
+                  in Expect.equal init tl
+
+            ]
+-}
         , describe "Tile Drawing"
             [
 

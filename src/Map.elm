@@ -72,7 +72,7 @@ makePane mo =
       { dragstate = Nothing
       , size = mo.size
       , position = emptyPos -- the origin of the pane, relative to the origin of the map, in pixels
-      , latLngCenter = sw -- ??????????
+      --, latLngCenter = sw -- ??????????
       , tileLayers = List.map (updateTileLayer (TileLayer_Move {x=0, y=0})) <| catMaybe [initialLayer] 
       , vectorLayers = [mkVectorLayer mo.vectorOptions mo.crs mo.size sw mo.initialZoom] }
 

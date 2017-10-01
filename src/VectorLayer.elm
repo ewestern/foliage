@@ -80,10 +80,10 @@ getSVGAttributes vl =
         Just bs -> 
           let pBounds = mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
               or = latLngToPoint vl.crs vl.currentZoom vl.latLngOrigin
-              t = round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
+              t =  round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
               l = round <| or.x - pBounds.sw.x
-              w = vl.size.x - l
-              h = vl.size.y - t
+              w = max (vl.size.x - l) vl.size.x
+              h = max (vl.size.y - t) vl.size.y
               box = String.join " " <| List.map toString [l, t, w, h]
               trans = String.join "," <| List.map (\i -> i ++ "px") <| List.map toString [l, t, 0]
               translate = ("transform", "translate3d(" ++ trans ++ ")") 

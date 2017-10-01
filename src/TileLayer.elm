@@ -1,20 +1,23 @@
 module TileLayer exposing (..)
 
 import Html
-
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (on)
+
 import Regex exposing (Regex, regex, replace, HowMany(..), Match)
 import Dict exposing (Dict)
 import Set exposing (Set)
+import Json.Decode as D
 
 import Layer exposing (..)
 import Geo exposing (..)
 import Util exposing (px, catMaybe, range, zip)
 
-type TileLayerAction
-  = TileLayer_Move Position
-  | TileLayer_Zoom ZoomDir
+type  TileLayerAction
+    = TileLayer_Move Position
+    | TileLayer_Zoom ZoomDir
+    | TileLayer_Load Tile
 
 type alias TileAddress = (Int, Int, Int)
 
@@ -90,10 +93,12 @@ makeTilesFromBounds temp size z pointOrigin tr =
       let pairs = List.concat <| List.map (\x -> List.map (\y -> (x,y) ) (range tr.sw.y tr.ne.y) ) (range tr.sw.x tr.ne.x)
       in  List.map (\(x,y) -> createTile temp size z pointOrigin {x=x, y=y}) pairs
 
+getKey : Position -> TileKey
+getKey {x,y} = String.join ":" <| List.map toString [x, y]
+
 updateDictWithTiles : List Tile -> Dict TileKey Tile -> Dict TileKey Tile
 updateDictWithTiles tiles dict = 
-    let getKey {x,y} = String.join ":" <| List.map toString [x, y]
-        nd = Dict.fromList <| List.map (\t -> (getKey(t.position) ,t)) tiles
+    let nd = Dict.fromList <| List.map (\t -> (getKey(t.position) ,t)) tiles
     in Dict.union dict nd
 
 tileSize = 
@@ -113,7 +118,7 @@ createTile temp size zoom pointOrigin tilepos =
   let pos = getPositionFromOrigin pointOrigin tilepos
   in 
     { url = makeUrl {x=tilepos.x, y=tilepos.y, z=zoom } temp
-    , current = True
+    , current = False
     , address = (tilepos.x, tilepos.y, zoom)
     , position = pos }
 
@@ -136,6 +141,22 @@ updateTileLayer tla tl =
               currentZoom = nz
             , latLngOrigin = newOrigin }
       in moveTileLayer {x=0,y=0} nt
+    TileLayer_Load t -> updateLayerWithTile tl tl.currentZoom t
+
+updateLayerWithTile : TileLayer -> Zoom -> Tile -> TileLayer
+updateLayerWithTile tl zoom tile = 
+  case Dict.get zoom tl.levels of
+    Just level -> updateLayerWithLevel tl  <| updateLevelWithTile level tile
+    Nothing -> Debug.crash "Shouldn't happen"
+
+updateLayerWithLevel : TileLayer -> Level -> TileLayer
+updateLayerWithLevel tl level = 
+  { tl | levels = Dict.update level.zoom (Maybe.map (always level)) tl.levels }
+
+updateLevelWithTile : Level -> Tile -> Level
+updateLevelWithTile level tile =  
+    let key = getKey tile.position
+    in { level | tiles = Dict.update key (Maybe.map (always tile)) level.tiles } 
 
 
 createLevel : Zoom -> Level
@@ -150,7 +171,7 @@ getDefault def k d =
     Just v -> v
     Nothing -> def
 
-viewTileLevel : Level -> Html a
+viewTileLevel : Level -> Html TileLayerAction
 viewTileLevel level = 
   div
     [ style
@@ -163,7 +184,7 @@ viewTileLevel level =
     (List.map viewTile <| Dict.values level.tiles)
        
 
-viewTileLayer : TileLayer -> Html a
+viewTileLayer : TileLayer -> Html TileLayerAction
 viewTileLayer tl = 
     let level = getDefault (createLevel tl.currentZoom ) tl.currentZoom tl.levels
     in 
@@ -177,18 +198,32 @@ viewTileLayer tl =
         ]
         <| [viewTileLevel level]
 
-viewTile : Tile -> Html a
+onLoad : a -> Attribute a
+onLoad message = 
+  on "load" (D.succeed message)
+
+viewTile : Tile -> Html TileLayerAction
 viewTile t = 
-      img
-        [ style
-            [ ("left", px t.position.x)
-            , ("top", px t.position.y)
-            , ("height", px 256)
-            , ("width", px 256)
-            , ("pointer-events", "none")
-            , ("position", "absolute")
-            ],
-          src t.url
-        ] 
-        [ ]
+  let display = if t.current then "block" else "none"
+      image = 
+        img
+          [ style 
+              [ ("display", display ) ],
+            src t.url,
+            onLoad (TileLayer_Load {t | current = True })
+          ] 
+          []
+  in 
+    div
+      [ style 
+        [ ("left", px t.position.x)
+        , ("top", px t.position.y)
+        , ("height", px 256)
+        , ("width", px 256)
+        , ("position", "absolute")
+        , ("pointer-events", "none")
+        , ("background-color", "#d3d3d3")
+        ]
+      ]
+      [image]
 
