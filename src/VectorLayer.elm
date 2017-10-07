@@ -78,11 +78,13 @@ getSVGAttributes vl =
     in
       case vectorBounds of
         Just bs -> 
-          let pBounds = mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
+          let pBounds = Debug.log "pbounds" <| mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
               or = latLngToPoint vl.crs vl.currentZoom vl.latLngOrigin
-              t =  round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
+              t =  Debug.log "t" <| round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
+-- difference between the map origin and the furthest east bounds extent
+              --l = Debug.log "l" <| round <|  pBounds.ne.x - or.x
               l = round <| or.x - pBounds.sw.x
-              w = max (vl.size.x - l) vl.size.x
+              w = max (round <| pBounds.ne.x - or.x) vl.size.x
               h = max (vl.size.y - t) vl.size.y
               box = String.join " " <| List.map toString [l, t, w, h]
               trans = String.join "," <| List.map (\i -> i ++ "px") <| List.map toString [l, t, 0]
@@ -171,8 +173,6 @@ drawPath ls closed =
             then Nothing
             else Just <| r ++ (if closed then "z" else "")
         
-            
-
 fromJust : Maybe a -> a
 fromJust m =
   case m of
@@ -203,21 +203,6 @@ deDupe ls =
           (final, ls) = List.foldl deDupeF init xs
       in ls
     []  -> []
-
-{-
-deDupe : Array a -> Array a
-deDupe arr = 
-  let 
-    maybePush el (last, newArr) = 
-      if el == last
-          then (last, newArr)
-          else (el, Array.push el newArr)
-    head = fromJust <| Array.get 0 arr
-    (_, newArra) = Array.foldl maybePush (head, Array.fromList [head]) arr
-  in newArra
--}
-      
-        
 
 drawRing : List Position -> Maybe String
 drawRing lr  =

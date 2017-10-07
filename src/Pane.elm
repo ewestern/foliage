@@ -12,7 +12,7 @@ import Svg.Attributes  as SA
 import Json.Decode as Decode
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (on)
+import Html.Events exposing (on, onDoubleClick)
 
 --
 import Util exposing (px)
@@ -45,13 +45,10 @@ type alias Velocity =
   , dy : Float
   }
 
--- For a given scroll cycle, the Pane's origin can be associated with a specific LatLng
 type alias MapPane = 
   { dragstate : DragState
   , tileLayers : List TileLayer
-  --, geometry : GetGeometry
   , vectorLayers : List VectorLayer
-  --, latLngCenter : LatLng
   , size : Size
   , position : Position
   }
@@ -147,19 +144,12 @@ dragSubscription ds =
       Just d -> Sub.batch [ Mouse.moves DragAt, Mouse.ups (\p -> DragEnd), coastSubscription d]
       Nothing -> Sub.none
       
----
-
-
---
 updateDragCommand : DragAction -> Cmd DragAction
 updateDragCommand da = 
     case da of
       DragEnd -> Task.perform DragCoastStart now
       _   -> Cmd.none
 
-
-
--- makeVectorLayer : LatLng -> CRS -> Zoom -> VectorOptions -> VectorLayer
 
 updateVectorLayerWithDragAction : DragAction -> Position -> List VectorLayer -> (Cmd PaneAction, List VectorLayer)
 updateVectorLayerWithDragAction da pos vls = 
@@ -207,6 +197,7 @@ viewPane : MapPane -> Html PaneAction
 viewPane  pane =
       div
         [ onMouseDown (Pane_Drag << DragStart)
+        , onDoubleClick (Pane_Zoom In) 
         , attribute "data-foliage-name" "view-pane"
         , style
             [ 
@@ -216,7 +207,6 @@ viewPane  pane =
             ]
         ] 
         [ viewContainer pane.position pane.tileLayers pane.vectorLayers
-        --, Html.map Pane_Vector <| vectorLayersView pane.vectorLayers
         , Html.map Pane_Zoom <| zoomContainer {x=10, y=10} 
         ]
 -- idea is: Pane stays still; child Container moves
@@ -280,6 +270,8 @@ viewContainer pos ls vls =
               , ("height", "100%")
               , ("width", "100%")
               , ("position", "absolute")
+              , ("cursor",  "-webkit-grab")
+              , ("pointer-events", "none")
             ]
 
           , attribute "data-foliage-name" "view-container"

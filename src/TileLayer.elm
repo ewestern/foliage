@@ -80,7 +80,6 @@ moveTileLayer pos tl =
 
 updateLevel : CRS -> String -> Zoom -> Size -> Point -> Position -> Level -> Level
 updateLevel crs temp z paneSize pointOrigin pos level =
-      -- Use pixel origin, ie, nw of window, rather than sw
   let pixelOrigin = sum pointOrigin {x=0, y=toFloat -paneSize.y}
       newOrigin = sum (mapCoord (negate << toFloat) pos) pixelOrigin
       tr = getTileRange crs z paneSize newOrigin
@@ -160,10 +159,7 @@ updateLevelWithTile level tile =
 
 
 createLevel : Zoom -> Level
-createLevel z =
-  { zoom = z
-  , tiles = Dict.empty  }
-  --, active = True }
+createLevel z =  { zoom = z, tiles = Dict.empty  }
 
 getDefault : v -> comparable -> Dict comparable v -> v
 getDefault def k d = 
@@ -208,9 +204,11 @@ viewTile t =
       image = 
         img
           [ style 
-              [ ("display", display ) ],
-            src t.url,
-            onLoad (TileLayer_Load {t | current = True })
+              [ ("display", display ) 
+              , ("cursor",  "-webkit-grab")
+              , ("pointer-events", "none") ]
+           , src t.url
+           , onLoad (TileLayer_Load {t | current = True })
           ] 
           []
   in 
@@ -218,10 +216,10 @@ viewTile t =
       [ style 
         [ ("left", px t.position.x)
         , ("top", px t.position.y)
+        , ("pointer-events", "none")
         , ("height", px 256)
         , ("width", px 256)
         , ("position", "absolute")
-        , ("pointer-events", "none")
         , ("background-color", "#d3d3d3")
         ]
       ]
