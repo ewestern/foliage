@@ -13,6 +13,12 @@ type alias Layer a
     , crs : CRS
     , currentZoom : Zoom }
 
+incZoom : ZoomDir -> Zoom -> Zoom
+incZoom zd z =  case zd of
+    In -> z + 1
+    Out -> z - 1
+
+
 latLngToPoint : CRS -> Zoom -> LatLng -> Point
 latLngToPoint crs zoom ll = 
   let scalar = crs.scale zoom

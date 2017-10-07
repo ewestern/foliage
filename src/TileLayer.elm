@@ -21,11 +21,6 @@ type  TileLayerAction
 
 type alias TileAddress = (Int, Int, Int)
 
-incZoom : ZoomDir -> Zoom -> Zoom
-incZoom zd z =  case zd of
-    In -> z + 1
-    Out -> z - 1
-
 type alias Tile =
   { url : String 
   , current: Bool

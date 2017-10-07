@@ -18,7 +18,7 @@ import Html.Events exposing (on, onDoubleClick)
 import Util exposing (px)
 import Layer exposing (ZoomDir(..))
 import TileLayer exposing (..)
-import VectorLayer exposing (VectorLayer, VectorOptions, VectorLayerAction(..), updateVectorLayer, vectorLayersView)
+import VectorLayer exposing (VectorLayer, VectorOptions, VectorLayerAction(..), updateVectorLayer, vectorLayersView, batchUpdateVector)
 import Geo exposing (LatLng, Size, Position)
 
 
@@ -35,6 +35,7 @@ type DragAction
 type PaneAction
     = Pane_Drag DragAction
     | Pane_Zoom ZoomDir
+    | Pane_ZoomInOn Position
     | Pane_Vector VectorLayerAction 
     | Pane_Tile TileLayerAction
     | Pane_Empty
@@ -180,12 +181,16 @@ updatePane action pane =
       Pane_Zoom zd ->  
 -- TODO: update vector layer
 -- TODO: might need to reset pane.position since we're resetting latLngOrigin ??
-        let np =  { pane | tileLayers = List.map (updateTileLayer (TileLayer_Zoom zd)) pane.tileLayers  } 
-        in (np, Cmd.none)
+        let (vls, vcmd) = batchUpdateVector (VectorLayer_Zoom zd) pane.vectorLayers
+            np =  
+            { pane | 
+                tileLayers = List.map (updateTileLayer (TileLayer_Zoom zd)) pane.tileLayers  
+              , vectorLayers = vls
+            } 
+        in (np, Cmd.map Pane_Vector vcmd)
       Pane_Vector vla -> 
-        let newVLS = List.map(updateVectorLayer vla) pane.vectorLayers
-            (vls, vcmd) = List.foldr (\(vl, c) (vs, cs) -> (vl::vs ,(Cmd.map Pane_Vector c)::cs)) ([], []) newVLS
-        in ({ pane | vectorLayers = vls }, Cmd.batch vcmd) 
+        let (vls, vcmd) = batchUpdateVector vla pane.vectorLayers
+        in ({ pane | vectorLayers = vls }, Cmd.map Pane_Vector vcmd) 
       Pane_Tile tla -> 
         let newtls = List.map (updateTileLayer tla) pane.tileLayers
         in ( { pane | tileLayers = newtls }, Cmd.none)

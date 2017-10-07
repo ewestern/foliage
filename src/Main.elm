@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Map exposing (..)
 import Html
-import Geo exposing (espg3857, LatLng, Point)
+import Geo exposing (espg3857, LatLng, Point, Bounds)
 import VectorLayer exposing (..)
 import Pane exposing (PaneAction(..))
 import Json.Decode as D
@@ -75,7 +75,7 @@ mkDefaultOptions crs size ll zoom =
 init : (Map, Cmd Action)
 init = 
 -- 36.5784983,-118.3010362
-  let mOpts = mkDefaultOptions  espg3857 {x = 500, y = 300 } (Initial_Center { lat = 36.5784983, lng=-118.3010362 }) 12
+  let mOpts = mkDefaultOptions  espg3857 {x = 500, y = 300 } (Initial_Center { lat = 36.5784983, lng=-118.3010362 }) 10
       --vOpts = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometryZ}
       f = A << Pane_Vector << VectorLayer_Geometry 
       ib = getInitialBounds mOpts.size mOpts.crs mOpts.initialZoom  mOpts.initialCoords

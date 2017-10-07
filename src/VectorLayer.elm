@@ -14,11 +14,6 @@ import Layer exposing (..)
 import Geo exposing (..)
 import GeoJson as GJ
 
-type alias Bounds a =
-  { sw : a 
-  , ne : a }
-
-
 type alias GetGeometry = Bounds LatLng -> Cmd (List GJ.Geometry)
 
 
@@ -43,6 +38,12 @@ type VectorLayerAction
    | VectorLayer_Zoom ZoomDir
    | VectorLayer_Geometry (List GJ.Geometry)
 
+batchUpdateVector : VectorLayerAction -> List VectorLayer -> (List VectorLayer, Cmd VectorLayerAction)
+batchUpdateVector vla vls = 
+  let newVLS = List.map(updateVectorLayer vla) vls
+      (vvls, vcmd) = List.foldr (\(vl, c) (vs, cs) -> (vl::vs ,c::cs)) ([], []) newVLS
+  in (vvls, Cmd.batch vcmd)
+
 updateVectorLayer : VectorLayerAction -> VectorLayer -> (VectorLayer, Cmd VectorLayerAction)
 updateVectorLayer vla vl = 
   case vla of
@@ -55,7 +56,18 @@ updateVectorLayer vla vl =
           bounds = getBounds vl.crs vl.currentZoom vl.size newOrigin
       in 
           ( vl, Cmd.map VectorLayer_Geometry <| vl.options.getGeometry bounds )
-    VectorLayer_Zoom zd -> Debug.crash "Basda"
+    VectorLayer_Zoom zd -> 
+      let nz = incZoom zd vl.currentZoom
+          center = getCenterFromOrigin vl.crs vl.currentZoom vl.size vl.latLngOrigin
+          newOrigin = getOriginFromCenter vl.crs nz vl.size center 
+          bounds = getBounds vl.crs vl.currentZoom vl.size newOrigin
+          nvl = 
+            { vl | 
+              currentZoom = nz
+            , latLngOrigin = newOrigin }
+      in (nvl, Cmd.map VectorLayer_Geometry <| vl.options.getGeometry bounds )
+
+
 
 --- VIEWS
 
@@ -70,6 +82,23 @@ getVectorLayerEnvelope vl = case vl.geometry of
             let f geo env = unionEnvelope env <| geometryToEnvelope geo
             in Just <| List.foldl f (geometryToEnvelope x)  xs
 
+type alias ViewBox = (Int, Int, Int, Int)
+type alias Translation = (Int, Int, Int)
+type alias Dimensions = (Int, Int)
+
+getBoxFromBounds : CRS -> Zoom -> Size -> LatLng -> Bounds LatLng -> (Dimensions, ViewBox, Translation)
+getBoxFromBounds crs zoom size ll bds = 
+  let pBounds = mapBounds (latLngToPoint crs zoom) bds
+      or = latLngToPoint crs zoom ll
+      t =  round <| pBounds.ne.y - or.y - (toFloat size.y)
+      l = round <| or.x - pBounds.sw.x
+      w = (abs <| round <| pBounds.ne.x - or.x)  + size.x
+      h = max (size.y - t) size.y
+      box = (l, t, w, h)
+      trans = (l, t, 0)
+  in ((w, h), box, trans)
+-- min-x, min-y, width and height
+
 
 --vectorLayerSVG : VectorLayer
 getSVGAttributes : VectorLayer -> List (Svg.Attribute a)
@@ -78,16 +107,9 @@ getSVGAttributes vl =
     in
       case vectorBounds of
         Just bs -> 
-          let pBounds = Debug.log "pbounds" <| mapBounds (latLngToPoint vl.crs vl.currentZoom) bs
-              or = latLngToPoint vl.crs vl.currentZoom vl.latLngOrigin
-              t =  Debug.log "t" <| round <| pBounds.ne.y - or.y - (toFloat vl.size.y)
--- difference between the map origin and the furthest east bounds extent
-              --l = Debug.log "l" <| round <|  pBounds.ne.x - or.x
-              l = round <| or.x - pBounds.sw.x
-              w = max (round <| pBounds.ne.x - or.x) vl.size.x
-              h = max (vl.size.y - t) vl.size.y
-              box = String.join " " <| List.map toString [l, t, w, h]
-              trans = String.join "," <| List.map (\i -> i ++ "px") <| List.map toString [l, t, 0]
+          let ((w, h), (l, t, vw, vh), (tl, tt, z)) = getBoxFromBounds vl.crs vl.currentZoom vl.size vl.latLngOrigin bs
+              box = String.join " " <| List.map toString [l, t, vw, vh]
+              trans = String.join "," <| List.map (flip (++) "px") <| List.map toString [tl, tt, 0]
               translate = ("transform", "translate3d(" ++ trans ++ ")") 
           in [width <| toString w, height <| toString h, viewBox box, style [translate]]
         Nothing -> [width "100%", height "100%"]
