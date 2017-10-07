@@ -7,11 +7,13 @@ import Array
 import String
 import Pane exposing (..)
 import Result
+import Task
 
 
 
 import GeoJson as GJ
 import Geo exposing (..)
+import Geometry exposing (emptyEnvelope)
 import TileLayer exposing (..)
 import Layer exposing (..)
 import VectorLayer exposing (..)
@@ -40,6 +42,24 @@ tileLayer =
   , crs=espg3857
   , currentZoom = 10 }
 
+
+getGeometry : Bounds LatLng -> Cmd (List GJ.Geometry)
+getGeometry _ = 
+        let gt = Task.succeed [testGeom2]
+        in Task.perform identity gt
+
+
+vLayer : VectorLayer
+vLayer = 
+  { options = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometry}
+  , geometry = [testGeom2]
+  , size = tileLayer.size
+  , latLngOrigin = tileLayer.latLngOrigin
+  , currentZoom = 12
+  , crs = espg3857 }
+
+
+
 convert : Point -> GJ.Position
 convert {x,y} = (x,y,0)
 
@@ -51,12 +71,13 @@ whitneyBox = GJ.LineString  <| List.map convert [
         , { y = 36.577, x = -118.302 }
         ]
 
+
 testGeom2 = GJ.LineString  <| List.map convert [ 
-          { y = 36.67584656386455, x = -118.37332275390625 }
-        , { y = 37.22458044629443, x = -118.37332275390625 }
-        , { y = 37.22458044629443, x = -117.68667724609377 }
-        , { y = 36.67584656386455, x = -117.68667724609377 }
-        , { y = 36.67584656386455, x = -118.37332275390625 }
+          { y = 36.67, x = -118.37 }
+        , { y = 36.72, x = -118.37 }
+        , { y = 36.72, x = -118.18 }
+        , { y = 36.67, x = -118.18 }
+        , { y = 36.67, x = -118.37 }
         ]
 
 testGeom = GJ.LineString  <| List.map convert [{ x = -118.02928544052078, y = 36.41785245831469 },{ x = -118.02920245967934, y = 36.41786369006496 },{ x = -118.02898830205326, y = 36.41789269144992 },{ x = -118.0288879706723, y = 36.41790627013306 },{ x = -118.02878244251131, y = 36.41792043554942 },{ x = -118.02860524907824, y = 36.417944491611536 }]
@@ -116,13 +137,6 @@ all =
                   , \() -> Expect.equal pos { x = 721, y = 491 } 
                   ] ()
 
-            --, test "getBounds" <|
-              --\() ->
-                  --let bounds = Debug.log "bounds" <| getBounds tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin
-                  --in Expect.all [
-                    --\() -> Expect.equal True True
-                  --] ()
-
           ]
         , describe "Vector Drawing" 
             [
@@ -133,19 +147,21 @@ all =
 
                         in Expect.equal svgPath <| Just "M412 1095L414 1095L415 1095L416 1094"
 
+             , test "" <|
+                 \() ->  
+
+                    let bds =  envelopeToBounds <| Maybe.withDefault emptyEnvelope <| getVectorLayerEnvelope vLayer
+
+                        (dims, box, trans) = getBoxFromBounds vLayer.crs vLayer.currentZoom vLayer.size vLayer.latLngOrigin bds
+                    in Expect.all [
+                        \() -> Expect.equal dims (1024, 3604)
+                      , \() -> Expect.equal box (1078,-3104,1024,3604)
+                      , \() -> Expect.equal trans (1078,-3104,0)
+
+                      ] ()
+
 
             ]
-{-
-        , describe "test zoom" 
-            [
-              test "foo" <| 
-                \() ->  
-                  let init = updateTileLayer ( TileLayer_Move {x=0,y=0}) tileLayer
-                      tl =  updateTileLayer (TileLayer_Zoom In)  init
-                  in Expect.equal init tl
-
-            ]
--}
         , describe "Tile Drawing"
             [
 
