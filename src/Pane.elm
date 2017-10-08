@@ -12,7 +12,8 @@ import Svg.Attributes  as SA
 import Json.Decode as Decode
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (on, onDoubleClick)
+import Html.Events exposing (on, onWithOptions, defaultOptions)
+import Html.Lazy as HL
 
 --
 import Util exposing (px)
@@ -114,6 +115,14 @@ onMouseDown : (Position -> a) -> Attribute a
 onMouseDown f =
   on "mousedown" (Decode.map f Mouse.position)
 
+onDoubleClickPos : (Position -> a) -> Attribute a
+onDoubleClickPos f = 
+  let opts = {defaultOptions | stopPropagation = True }
+      decoder = Decode.map2 Mouse.Position -- not sure why my Position doesn't work here.
+                (Decode.field "clientX" Decode.int)
+                (Decode.field "clientY" Decode.int)
+
+  in onWithOptions "dblclick" opts (Decode.map f decoder)
 
 coastSubscription : Drag -> Sub DragAction
 coastSubscription state = 
@@ -194,6 +203,19 @@ updatePane action pane =
       Pane_Tile tla -> 
         let newtls = List.map (updateTileLayer tla) pane.tileLayers
         in ( { pane | tileLayers = newtls }, Cmd.none)
+      Pane_ZoomInOn pos -> 
+        let disp = {x =pos.x , y=pane.size.y - pos.y }
+            half = Geo.mapCoord (\i -> i // 2) pane.size
+            relDisp = Geo.difference disp half 
+            
+-- what do we add to the center to get to this point?
+            (vls, vcmd) = batchUpdateVector (VectorLayer_ZoomInOn relDisp) pane.vectorLayers
+            np =
+              { pane | 
+                vectorLayers = vls,
+                tileLayers = List.map (updateTileLayer (TileLayer_ZoomInOn relDisp)) pane.tileLayers 
+              }
+        in (np, Cmd.map Pane_Vector vcmd) 
          
       Pane_Empty -> Debug.crash "FOO"
           
@@ -202,7 +224,7 @@ viewPane : MapPane -> Html PaneAction
 viewPane  pane =
       div
         [ onMouseDown (Pane_Drag << DragStart)
-        , onDoubleClick (Pane_Zoom In) 
+        , onDoubleClickPos Pane_ZoomInOn
         , attribute "data-foliage-name" "view-pane"
         , style
             [ 
@@ -212,60 +234,13 @@ viewPane  pane =
             ]
         ] 
         [ viewContainer pane.position pane.tileLayers pane.vectorLayers
-        , Html.map Pane_Zoom <| zoomContainer {x=10, y=10} 
         ]
 -- idea is: Pane stays still; child Container moves
 
 
-zoomContainer : Position -> Html ZoomDir
-zoomContainer pos =
-    div
-      [ style
-        [ ("border", "2px solid rgba(0,0,0,0.2)")
-        , ("margin-left", px pos.x)
-        , ("margin-top", px pos.y)
-        , ("float", "left")
-        , ("clear", "both")
-        , ("z-index", "1000")
-        , ("position", "relative")
-        , ("cursor", "auto")
-        ]
-      ]
-    [ zoomButtonView In, zoomButtonView Out ]
-    
-
-zoomButtonView : ZoomDir -> Html ZoomDir
-zoomButtonView s = 
-      a
-        [ onMouseDown <| always s
-        , attribute "role" "button"
-        , attribute "href" "#"
-        , style
-            [ ("height", "30px")
-            , ("width", "30px")
-            , ("font-size", "22px")
-            , ("text-align", "center")
-            , ("display", "block")
-            , ("background-color", "#fff")
-            , ("text-decoration", "none")
-            ]
-        ]
-        [zoomIconView s]
-
-zoomIconView : ZoomDir -> Html a
-zoomIconView z = case z of
-    In -> text "+"
-    Out -> text "-"
-    
-
-icon : Html a
-icon = 
-  let r = rect [ SA.width "40", SA.height "40"] []
-  in svg [] [r]
-
 viewContainer : Position -> List TileLayer -> List VectorLayer -> Html PaneAction
 viewContainer pos ls vls =
-    let tls = (List.map (Html.map Pane_Tile << viewTileLayer) ls)
+    let tls = (List.map (HL.lazy <| Html.map Pane_Tile << viewTileLayer) ls)
         vl = Html.map Pane_Vector <| vectorLayersView vls
     in
         div 

@@ -36,6 +36,7 @@ type alias VectorLayer --
 type VectorLayerAction
    = VectorLayer_Move Position
    | VectorLayer_Zoom ZoomDir
+   | VectorLayer_ZoomInOn Position
    | VectorLayer_Geometry (List GJ.Geometry)
 
 batchUpdateVector : VectorLayerAction -> List VectorLayer -> (List VectorLayer, Cmd VectorLayerAction)
@@ -66,6 +67,18 @@ updateVectorLayer vla vl =
               currentZoom = nz
             , latLngOrigin = newOrigin }
       in (nvl, Cmd.map VectorLayer_Geometry <| vl.options.getGeometry bounds )
+    VectorLayer_ZoomInOn pos -> 
+      let nz = vl.currentZoom + 1
+          center = getCenterFromOrigin vl.crs vl.currentZoom vl.size vl.latLngOrigin
+          targetCenter = getPannedLatLng vl.crs vl.currentZoom pos center
+          newOrigin = getOriginFromCenter vl.crs nz vl.size targetCenter 
+          bounds = getBounds vl.crs vl.currentZoom vl.size newOrigin
+          nvl = 
+            { vl | 
+              currentZoom = nz
+            , latLngOrigin = newOrigin }
+      in (nvl, Cmd.map VectorLayer_Geometry <| vl.options.getGeometry bounds )
+
 
 
 

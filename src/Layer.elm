@@ -47,7 +47,7 @@ getBounds crs zoom size ll =
 getCenterFromOrigin : CRS -> Zoom -> Size -> LatLng -> LatLng
 getCenterFromOrigin crs zoom size ll = 
     let point = latLngToPoint crs zoom ll
-        half = mapCoord (\i -> (toFloat i /2)) size
+        half = mapCoord (\i -> (toFloat i / 2)) size
         centerPoint =  { y = point.y - half.y, x = point.x + half.x }
     in pointToLatLng crs zoom centerPoint
 

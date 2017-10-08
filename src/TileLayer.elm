@@ -4,6 +4,7 @@ import Html
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on)
+import Html.Lazy as HL
 
 import Regex exposing (Regex, regex, replace, HowMany(..), Match)
 import Dict exposing (Dict)
@@ -17,6 +18,7 @@ import Util exposing (px, catMaybe, range, zip)
 type  TileLayerAction
     = TileLayer_Move Position
     | TileLayer_Zoom ZoomDir
+    | TileLayer_ZoomInOn Position
     | TileLayer_Load Tile
 
 type alias TileAddress = (Int, Int, Int)
@@ -128,7 +130,7 @@ updateTileLayer tla tl =
     TileLayer_Move pos -> moveTileLayer pos tl
     TileLayer_Zoom zd ->  
       let nz = incZoom zd tl.currentZoom
-          center = getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
+          center = Debug.log "CENTER" <| getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
           newOrigin = getOriginFromCenter tl.crs nz tl.size center 
           nt = 
             { tl | 
@@ -136,6 +138,19 @@ updateTileLayer tla tl =
             , latLngOrigin = newOrigin }
       in moveTileLayer {x=0,y=0} nt
     TileLayer_Load t -> updateLayerWithTile tl tl.currentZoom t
+    TileLayer_ZoomInOn pos -> 
+      let nz = Debug.log "ZIO" <| tl.currentZoom + 1
+          center = getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
+          targetCenter = getPannedLatLng tl.crs tl.currentZoom pos center
+          newOrigin = getOriginFromCenter tl.crs nz tl.size targetCenter
+          nt = 
+            { tl | 
+              currentZoom = nz
+-- Tiles are now based, essentially, on a new coordinate origin. Start over.
+            , levels = Dict.empty 
+            , latLngOrigin = newOrigin }
+      in moveTileLayer {x=0,y=0} nt
+
 
 updateLayerWithTile : TileLayer -> Zoom -> Tile -> TileLayer
 updateLayerWithTile tl zoom tile = 
@@ -172,7 +187,7 @@ viewTileLevel level =
         ]
     , attribute "data-foliage-name" "tile-level-view"
     ]
-    (List.map viewTile <| Dict.values level.tiles)
+    (List.map (HL.lazy viewTile) <| Dict.values level.tiles)
        
 
 viewTileLayer : TileLayer -> Html TileLayerAction
@@ -187,7 +202,7 @@ viewTileLayer tl =
           ]
           , attribute "data-foliage-name" "tile-layer-view"
         ]
-        <| [viewTileLevel level]
+        <| [HL.lazy viewTileLevel level]
 
 onLoad : a -> Attribute a
 onLoad message = 

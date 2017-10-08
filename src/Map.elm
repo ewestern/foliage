@@ -3,14 +3,20 @@ module Map exposing (..)
 import Html
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (on, onWithOptions, defaultOptions)
+import Svg exposing (rect, svg)
+import Svg.Attributes  as SA
+import Json.Decode as Decode
+
 import Dict
+import Mouse
 ---
 import Pane exposing (..)
 import Geo exposing (..)
 import Util exposing (..)
 import TileLayer exposing (TileLayer, updateTileLayer, TileLayerAction(..))
 import VectorLayer exposing (VectorLayer, VectorOptions)
-import Layer exposing (pointToLatLng, latLngToPoint, getBounds, getOriginFromCenter)
+import Layer exposing (pointToLatLng, latLngToPoint, getBounds, getOriginFromCenter, ZoomDir(..))
 
 
 type alias Map
@@ -86,7 +92,59 @@ mapView  map =
             , ("overflow", "hidden")
             ]
         ] 
-        [ Html.map A <| viewPane map.pane ]
+        [ Html.map A <| viewPane map.pane 
+        , Html.map (A << Pane_Zoom) <| zoomContainer {x=10, y=10}  ]
+zoomContainer : Position -> Html ZoomDir
+zoomContainer pos =
+    div
+      [ style
+        [ ("border", "2px solid rgba(0,0,0,0.2)")
+        , ("margin-left", px pos.x)
+        , ("margin-top", px pos.y)
+        , ("float", "left")
+        , ("clear", "both")
+        , ("z-index", "1000")
+        , ("position", "relative")
+        , ("cursor", "auto")
+        ]
+      ]
+    [ zoomButtonView In, zoomButtonView Out ]
+    
+onMouseDownQuiet : (Position -> msg) -> Attribute msg
+onMouseDownQuiet f = 
+  let opts = { defaultOptions | stopPropagation = True }
+  in onWithOptions "mousedown" opts (Decode.map f Mouse.position )
+
+
+zoomButtonView : ZoomDir -> Html ZoomDir
+zoomButtonView s = 
+      a
+        [ onMouseDownQuiet <| always s
+        , attribute "role" "button"
+        , attribute "href" "#"
+        , style
+            [ ("height", "30px")
+            , ("width", "30px")
+            , ("font-size", "22px")
+            , ("text-align", "center")
+            , ("display", "block")
+            , ("background-color", "#fff")
+            , ("text-decoration", "none")
+            ]
+        ]
+        [zoomIconView s]
+
+zoomIconView : ZoomDir -> Html a
+zoomIconView z = case z of
+    In -> text "+"
+    Out -> text "-"
+    
+
+icon : Html a
+icon = 
+  let r = rect [ SA.width "40", SA.height "40"] []
+  in svg [] [r]
+
 
 
 updateMap : Action -> Map -> (Map, Cmd Action)
