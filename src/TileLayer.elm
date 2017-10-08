@@ -216,6 +216,7 @@ viewTile t =
           [ style 
               [ ("display", display ) 
               , ("cursor",  "-webkit-grab")
+              , ("user-select",  "none")
               , ("pointer-events", "none") ]
            , src t.url
            , onLoad (TileLayer_Load {t | current = True })

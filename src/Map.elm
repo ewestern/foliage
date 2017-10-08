@@ -130,6 +130,7 @@ zoomButtonView s =
             , ("display", "block")
             , ("background-color", "#fff")
             , ("text-decoration", "none")
+            , ("-webkit-tap-highlight-color",  "transparent")
             ]
         ]
         [zoomIconView s]

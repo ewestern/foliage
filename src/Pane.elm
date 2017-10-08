@@ -251,6 +251,7 @@ viewContainer pos ls vls =
               , ("width", "100%")
               , ("position", "absolute")
               , ("cursor",  "-webkit-grab")
+              , ("-webkit-tap-highlight-color",  "transparent")
               , ("pointer-events", "none")
             ]
 
