@@ -1,4 +1,4 @@
-module Map exposing (..)
+module Map exposing (mapSubscriptions, updateMap, mapView, Map, InitialCoords(..), MapAction(..), MapOptions, getInitialBounds)
 
 import Html
 import Html exposing (..)
@@ -15,7 +15,7 @@ import Pane exposing (..)
 import Geo exposing (..)
 import Util exposing (..)
 import TileLayer exposing (TileLayer, updateTileLayer, TileLayerAction(..))
-import VectorLayer exposing (VectorLayer, VectorOptions)
+import VectorLayer exposing (VectorLayer, VectorLayerOptions)
 import Layer exposing (pointToLatLng, latLngToPoint, getBounds, getOriginFromCenter, ZoomDir(..))
 
 
@@ -27,20 +27,28 @@ type InitialCoords
   = Initial_Center LatLng
   | Initial_Bounds (Bounds LatLng)
 
-type Action
-    = A PaneAction
+type MapAction
+    = Map_Pane PaneAction
+    | Map_VectorLayer VectorLayerOptions
+    | Map_TileLayer TileLayerOptions
 
-
+-- tileUrl : Maybe String
 type alias MapOptions =
-  { tileUrl : Maybe String
-  , initialCoords : InitialCoords
-  , vectorOptions : VectorOptions
+  { initialCoords : InitialCoords
+  --, vectorOptions : List VectorOptions
+  --, tileOptions : List TileOptions
   , initialZoom : Zoom
   , crs : CRS
   , size : Size }
   
+defaultOptions : MapOptions
+defaultOptions
+  { size = {x=500, y=500}
+  , initialCoords = {lat=51.476, lng=0}
+  , crs = espg3857
+  , tileOptions = []
+  , vectorOptions = [] }
 
--- TODO
 getInitialBounds : Size -> CRS -> Zoom -> InitialCoords -> Bounds LatLng
 getInitialBounds size crs zoom ic = 
     case ic of
@@ -72,17 +80,16 @@ makePane mo =
         initialLayer = 
           Maybe.map (\url -> 
               { urlTemplate = url, size = mo.size, levels = Dict.empty, crs=mo.crs, currentZoom = mo.initialZoom, latLngOrigin=sw }) mo.tileUrl
-        -- convert vectorLayerOptions into vectoryLayers
-        --vls = 
     in
       { dragstate = Nothing
       , size = mo.size
-      , position = emptyPos -- the origin of the pane, relative to the origin of the map, in pixels
-      --, latLngCenter = sw -- ??????????
+      , position = emptyPos 
       , tileLayers = List.map (updateTileLayer (TileLayer_Move {x=0, y=0})) <| catMaybe [initialLayer] 
       , vectorLayers = [mkVectorLayer mo.vectorOptions mo.crs mo.size sw mo.initialZoom] }
 
-mapView : Map -> Html.Html Action
+{-| The map's view function
+-}
+mapView : Map -> Html.Html MapAction
 mapView  map =  
       div
         [ style
@@ -92,8 +99,8 @@ mapView  map =
             , ("overflow", "hidden")
             ]
         ] 
-        [ Html.map A <| viewPane map.pane 
-        , Html.map (A << Pane_Zoom) <| zoomContainer {x=10, y=10}  ]
+        [ Html.map Map_Pane <| viewPane map.pane 
+        , Html.map (Map_Pane << Pane_Zoom) <| zoomContainer {x=10, y=10}  ]
 zoomContainer : Position -> Html ZoomDir
 zoomContainer pos =
     div
@@ -147,16 +154,20 @@ icon =
   in svg [] [r]
 
 
+{-| The map's main update function
 
-updateMap : Action -> Map -> (Map, Cmd Action)
+-}
+updateMap : MapAction -> Map -> (Map, Cmd MapAction)
 updateMap action map = 
   case action of
-    A da -> 
+    Map_Pane da -> 
       let (mp, cd) = updatePane da map.pane
           nm = { map | pane = mp }
-          cmd  = Cmd.map A cd
+          cmd  = Cmd.map Map_Pane cd
       in (nm, cmd)
 
-mapSubscriptions  : Map -> Sub Action
+{-| A default set of subscriptions that must be listened for.
+-}
+mapSubscriptions  : Map -> Sub MapAction
 mapSubscriptions map = 
-     Sub.map (A << Pane_Drag) <| dragSubscription map.pane.dragstate 
+     Sub.map (Map_Pane << Pane_Drag) <| dragSubscription map.pane.dragstate 

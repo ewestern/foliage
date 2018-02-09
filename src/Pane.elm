@@ -39,7 +39,6 @@ type PaneAction
     | Pane_ZoomInOn Position
     | Pane_Vector VectorLayerAction 
     | Pane_Tile TileLayerAction
-    | Pane_Empty
 
 
 type alias Velocity =
@@ -217,7 +216,6 @@ updatePane action pane =
               }
         in (np, Cmd.map Pane_Vector vcmd) 
          
-      Pane_Empty -> Debug.crash "FOO"
           
       
 viewPane : MapPane -> Html PaneAction

@@ -1,6 +1,7 @@
 module Layer exposing (..)
 
 import Geo exposing (..)
+import Geometry exposing (Coordinate)
 
 type ZoomDir
   = In
@@ -9,8 +10,8 @@ type ZoomDir
 type alias Layer a 
   = { a | 
       size : Size
-    --, latLngOrigin : LatLng
     , crs : CRS
+    , latLngOrigin : LatLng
     , currentZoom : Zoom }
 
 incZoom : ZoomDir -> Zoom -> Zoom
@@ -18,6 +19,22 @@ incZoom zd z =  case zd of
     In -> z + 1
     Out -> z - 1
 
+
+{-|
+  Given a Layer and a GeoJSON Coordinate, return the Coordinate's position relative to the layer origin
+
+-}
+getCoordinatePosition : Layer a -> Coordinate -> Position
+getCoordinatePosition l (x,y,_) =
+  let
+    origin = sum {x=0, y=toFloat -l.size.y} <| latLngToPoint l.crs l.currentZoom l.latLngOrigin
+    c = latLngToPoint l.crs l.currentZoom {lng=x, lat=y}
+  in mapCoord round <| difference c origin
+
+
+getLayerOriginPoint : Layer a -> Point
+getLayerOriginPoint layer =
+  latLngToPoint layer.crs layer.currentZoom layer.latLngOrigin
 
 latLngToPoint : CRS -> Zoom -> LatLng -> Point
 latLngToPoint crs zoom ll = 

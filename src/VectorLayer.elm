@@ -17,13 +17,18 @@ import GeoJson as GJ
 type alias GetGeometry = Bounds LatLng -> Cmd (List GJ.Geometry)
 
 
-type alias VectorOptions
+type alias VectorLayerOptions
   =  {  stroke : String
       , color : String
       , weight: String 
       , getGeometry : GetGeometry
     }
 
+--defaultOptions : VectorOptions
+--defaultOptions = 
+  --{
+
+-- {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometry}
 
 type alias VectorLayer -- 
   = { options: VectorOptions
@@ -49,7 +54,7 @@ updateVectorLayer : VectorLayerAction -> VectorLayer -> (VectorLayer, Cmd Vector
 updateVectorLayer vla vl = 
   case vla of
     VectorLayer_Geometry geos -> 
--- For now, just abandon previous retrieved geometries. Probably want to do some kind of caching
+        -- For now, just abandon previous retrieved geometries. Probably want to do some kind of caching
         ( { vl | geometry = geos }, Cmd.none )
     VectorLayer_Move pos -> 
       let disp = mapCoord negate pos
@@ -110,10 +115,8 @@ getBoxFromBounds crs zoom size ll bds =
       box = (l, t, w, h)
       trans = (l, t, 0)
   in ((w, h), box, trans)
--- min-x, min-y, width and height
 
 
---vectorLayerSVG : VectorLayer
 getSVGAttributes : VectorLayer -> List (Svg.Attribute a)
 getSVGAttributes vl = 
     let vectorBounds = Maybe.map envelopeToBounds <| getVectorLayerEnvelope vl
@@ -133,7 +136,7 @@ vectorLayerView vl =
     let snode =
           svg
             (getSVGAttributes vl )
-            (List.map (drawGeometry vl.options vl.crs vl.currentZoom vl.size vl.latLngOrigin) vl.geometry)
+            (List.map (drawGeometry vl.options vl) vl.geometry)
 
     in
       div
@@ -161,26 +164,18 @@ vectorLayersView vls =
 
 
 
-drawGeometry : VectorOptions -> CRS -> Zoom -> Size -> LatLng -> GJ.Geometry -> Svg.Svg msg
-drawGeometry vo crs zoom size ll geo =
-  case drawPath (getGeometryPath crs zoom size ll geo) False of
+drawGeometry : VectorOptions -> Layer a -> GJ.Geometry -> Svg.Svg msg
+drawGeometry vo layer geo =
+  case drawPath (getGeometryPath layer geo) False of
     Just pth -> 
       let pnode = path [d pth, stroke vo.stroke, fill "none"] []
       in g [] [pnode]
     Nothing   -> g [] []
       
 
-
-getCoordinatePosition : CRS -> Zoom -> Size -> LatLng -> Coordinate -> Position
-getCoordinatePosition crs zoom size or (x,y,_) =
-  let
-    origin = sum {x=0, y=toFloat -size.y} <| latLngToPoint crs zoom or -- sw
-    c = latLngToPoint crs zoom {lng=x, lat=y}
-  in mapCoord round <| difference c origin
-
-getGeometryPath : CRS -> Zoom -> Size -> LatLng -> GJ.Geometry -> List (List Position)
-getGeometryPath crs zoom size origin geom = 
-  let f = getCoordinatePosition crs zoom size origin
+getGeometryPath : Layer a -> GJ.Geometry -> List (List Position)
+getGeometryPath layer geom = 
+  let f = getCoordinatePosition layer
   in
     List.map deDupe <|
       case geom of

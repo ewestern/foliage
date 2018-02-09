@@ -21,6 +21,17 @@ type  TileLayerAction
     | TileLayer_ZoomInOn Position
     | TileLayer_Load Tile
 
+type alias TileOptions
+  = { tileUrl : String
+    , minZoom : Int
+    , maxZoom : Int }
+
+defaultOptions : TileOptions
+defaultOptions = 
+  { tileUrl = "https://api.mapbox.com/styles/v1/mapbox/outdoors-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZXdlc3Rlcm4iLCJhIjoiY2lmY2Z5eWNsM3Y2OHN4bTdndmJha29kZCJ9.8hIQ8iTAmMZD__3uHytwvw"
+  , minZoom = 3
+  , maxZoom = 18 }
+
 type alias TileAddress = (Int, Int, Int)
 
 type alias Tile =
@@ -130,7 +141,7 @@ updateTileLayer tla tl =
     TileLayer_Move pos -> moveTileLayer pos tl
     TileLayer_Zoom zd ->  
       let nz = incZoom zd tl.currentZoom
-          center = Debug.log "CENTER" <| getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
+          center = getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
           newOrigin = getOriginFromCenter tl.crs nz tl.size center 
           nt = 
             { tl | 
@@ -139,7 +150,7 @@ updateTileLayer tla tl =
       in moveTileLayer {x=0,y=0} nt
     TileLayer_Load t -> updateLayerWithTile tl tl.currentZoom t
     TileLayer_ZoomInOn pos -> 
-      let nz = Debug.log "ZIO" <| tl.currentZoom + 1
+      let nz = tl.currentZoom + 1
           center = getCenterFromOrigin tl.crs tl.currentZoom tl.size tl.latLngOrigin
           targetCenter = getPannedLatLng tl.crs tl.currentZoom pos center
           newOrigin = getOriginFromCenter tl.crs nz tl.size targetCenter

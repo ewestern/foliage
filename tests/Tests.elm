@@ -131,7 +131,7 @@ all =
             , test "getPannedLatLng" <| 
               \() ->
                   let ll = getPannedLatLng tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin
-                      pos = getCoordinatePosition tileLayer.crs tileLayer.currentZoom tileLayer.size tileLayer.latLngOrigin (-117.01, 36.01, 0)
+                      pos = getCoordinatePosition tileLayer (-117.01, 36.01, 0)
                   in Expect.all [
                     \() -> Expect.equal ll { lat = 36.55354730363422, lng = -117.3133544921875 }
                   , \() -> Expect.equal pos { x = 721, y = 491 } 
@@ -142,7 +142,8 @@ all =
             [
               test "" <|
                 \() ->  
-                        let testPath = getGeometryPath tileLayer.crs 13 tileLayer.size {lat=36.5, lng=-118.1} testGeom
+                        let lyr = { tileLayer | currentZoom = 13, latLngOrigin = {lat=36.5, lng=-118.1} }
+                            testPath = getGeometryPath lyr testGeom
                             svgPath = drawPath testPath False
 
                         in Expect.equal svgPath <| Just "M412 1095L414 1095L415 1095L416 1094"

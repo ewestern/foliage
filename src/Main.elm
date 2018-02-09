@@ -4,6 +4,7 @@ import Map exposing (..)
 import Html
 import Geo exposing (espg3857, LatLng, Point, Bounds)
 import VectorLayer exposing (..)
+import TileLayer as TL
 import Pane exposing (PaneAction(..))
 import Json.Decode as D
 import GeoJson as GJ
@@ -62,22 +63,28 @@ getGeometry _ =
 
 
 ---- UPDATE
+
+
+
 mkDefaultOptions crs size ll zoom = 
   { size = size
   , initialCoords = ll
   , crs = crs
-  , vectorOptions = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometry}
+  , vectorOptions = []
+  , tileOptions = [TL.defaultOptions]
   , initialZoom = zoom
   , tileUrl = Just "https://api.mapbox.com/styles/v1/mapbox/outdoors-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZXdlc3Rlcm4iLCJhIjoiY2lmY2Z5eWNsM3Y2OHN4bTdndmJha29kZCJ9.8hIQ8iTAmMZD__3uHytwvw" }
 
+makeMap : MapOptions -> Map
+makeMap mo = 
+  let pane = makePane mo
+  in { size = mo.size, pane = pane }
 
-  -- , vectorLayers = [mkVectorLayer crs size ll zoom]
-init : (Map, Cmd Action)
+
+init : (Map, Cmd MapAction)
 init = 
--- 36.5784983,-118.3010362
   let mOpts = mkDefaultOptions  espg3857 {x = 500, y = 300 } (Initial_Center { lat = 36.5784983, lng=-118.3010362 }) 10
-      --vOpts = {stroke = "#3388ff", color="", weight="" , getGeometry=getGeometryZ}
-      f = A << Pane_Vector << VectorLayer_Geometry 
+      f = Map_Pane << Pane_Vector << VectorLayer_Geometry 
       ib = getInitialBounds mOpts.size mOpts.crs mOpts.initialZoom  mOpts.initialCoords
   in (makeMap mOpts, Cmd.map f <| getGeometry ib  )
 
